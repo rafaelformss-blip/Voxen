@@ -41,3 +41,24 @@
 .avatar{background-position:center;background-size:cover}
 @media(max-width:1150px){.app-shell.immersive-mode{grid-template-columns:58px 190px minmax(0,1fr)}.app-shell.immersive-mode .content-layout{padding:14px}.members-sidebar{width:165px}}
 @media(max-width:760px){.app-shell.immersive-mode{grid-template-columns:58px minmax(0,1fr)}.app-shell.immersive-mode .sidebar{display:none}.app-shell.immersive-mode .content-layout{padding:10px 8px}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:100px minmax(0,1fr)}.members-sidebar{display:none!important}.back-home-button{font-size:9px;padding:8px}.app-shell.immersive-mode .channel-workspace{height:calc(100vh - 155px)}}
+
+/* Final workspace sizing: channel list, chat and member list share one continuous panel. */
+.app-shell.immersive-mode .content-layout{display:block;width:100%;max-width:none;box-sizing:border-box;padding:12px 14px 14px}
+.app-shell.immersive-mode .feed-column{width:100%;max-width:none;min-width:0}
+.app-shell.immersive-mode #group-view{width:100%;max-width:none;min-width:0}
+.app-shell.immersive-mode .group-hero{margin:0 0 8px;padding:10px 14px;min-height:0;border-radius:10px}
+.app-shell.immersive-mode .group-cover-icon{width:38px;height:38px;border-radius:10px;font-size:17px}
+.app-shell.immersive-mode .group-hero h2{font-size:16px}
+.app-shell.immersive-mode .group-hero .eyebrow{margin-bottom:2px}
+.app-shell.immersive-mode .group-hero p:last-child{font-size:10px}
+.app-shell.immersive-mode .workspace-row{display:flex;align-items:stretch;width:100%;height:calc(100vh - 158px);min-height:420px;max-height:none;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#15161c}
+.app-shell.immersive-mode #group-view .channel-workspace{display:grid;grid-template-columns:175px minmax(0,1fr);flex:1 1 auto;width:0;min-width:0;height:100%;min-height:0;border:0;border-radius:0;overflow:hidden}
+.app-shell.immersive-mode .channel-sidebar{width:auto;min-width:0}
+.app-shell.immersive-mode .members-sidebar{display:block;flex:0 0 180px;width:180px;min-width:0;height:100%;box-sizing:border-box;border-left:1px solid var(--line);border-radius:0;overflow-y:auto}
+.app-shell.immersive-mode .members-sidebar[hidden]{display:none!important}
+.app-shell.immersive-mode .chat-panel{min-width:0;width:100%;height:100%;overflow:hidden}
+.app-shell.immersive-mode .chat-header{flex-shrink:0}
+.app-shell.immersive-mode .message-list{min-height:0}
+.app-shell.immersive-mode .message-composer{flex-shrink:0}
+@media(max-width:1000px){.app-shell.immersive-mode .content-layout{padding:8px}.app-shell.immersive-mode .workspace-row{height:calc(100vh - 142px)}.app-shell.immersive-mode .members-sidebar{flex-basis:150px;width:150px;padding:12px 8px}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:145px minmax(0,1fr)}}
+@media(max-width:760px){.app-shell.immersive-mode .workspace-row{height:calc(100vh - 145px);min-height:380px}.app-shell.immersive-mode .members-sidebar{display:none}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:112px minmax(0,1fr)}.app-shell.immersive-mode .group-hero{padding:8px 10px}}
