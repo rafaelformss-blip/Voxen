@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101116"><meta name="description" content="Voxen — comunidades, conversas e voz em um só lugar.">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="manifest" href="/manifest.json"><link rel="stylesheet" href="/styles.css">
+  <title>Voxen — sua comunidade</title>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="rail" aria-label="Navegação principal">
+    <a class="brand-mark" href="/" aria-label="Voxen início">v<span>.</span></a>
+    <button class="rail-button active" id="nav-feed" title="Feed" aria-label="Feed">⌂</button><div class="rail-divider"></div>
+    <div id="group-rail" class="group-rail" aria-label="Seus grupos"></div>
+    <button class="rail-button add-button" id="open-create-group" title="Criar comunidade" aria-label="Criar comunidade">＋</button>
+    <div class="rail-spacer"></div><button class="rail-button" id="install-button" title="Instalar Voxen" aria-label="Instalar Voxen" hidden>⇩</button>
+    <button class="rail-button profile-letter" id="profile-button" title="Conta" aria-label="Conta">?</button>
+  </aside>
+  <aside class="sidebar">
+    <div class="sidebar-top"><div><p class="eyebrow">SEU ESPAÇO DIGITAL</p><h1>Voxen<span class="brand-dot">.</span></h1></div><button class="icon-button" id="sidebar-menu" aria-label="Menu">•••</button></div>
+    <button class="search-box" id="search-button"><span>⌕</span> Buscar comunidades <kbd>Ctrl K</kbd></button>
+    <nav class="side-nav"><button class="side-link selected" id="side-feed"><span>▦</span> Feed da comunidade</button><button class="side-link" id="side-discover"><span>⌕</span> Descobrir grupos</button></nav>
+    <div class="section-heading"><span>SUAS COMUNIDADES</span><button id="create-group-small" aria-label="Criar comunidade">＋</button></div>
+    <div id="group-list" class="group-list"><p class="muted small empty-hint">Entre ou crie um grupo para começar.</p></div>
+    <div class="sidebar-footer"><div class="status-dot"></div><div><strong>Voxen Preview</strong><span>Versão inicial</span></div><span class="online-pill">BETA</span></div>
+  </aside>
+  <main class="main-area">
+    <header class="topbar"><div class="breadcrumbs"><span id="breadcrumb-main">Comunidade</span><span class="crumb-slash">/</span><strong id="breadcrumb-current">Feed</strong></div><div class="topbar-actions"><button class="icon-button" id="help-button" title="Ajuda">?</button><button class="primary-button compact" id="top-create-post">＋ Publicar</button><button class="avatar" id="top-avatar" aria-label="Perfil">V</button></div></header>
+    <section id="auth-view" class="auth-layout">
+      <div class="auth-art"><div class="auth-orb orb-one"></div><div class="auth-orb orb-two"></div><div class="auth-brand">voxen<span>.</span></div><p class="auth-kicker">O SEU LUGAR, A SUA GALERA</p><h2>Boas conversas<br>começam aqui.</h2><p class="muted">Encontre sua comunidade, compartilhe ideias e fique perto de quem importa.</p><div class="auth-feature"><span>✦</span> Comunidades para tudo o que você curte</div><div class="auth-feature"><span>◉</span> Conversas e salas de voz em um só lugar</div></div>
+      <div class="auth-card"><div class="auth-tabs"><button class="auth-tab selected" id="show-login">Entrar</button><button class="auth-tab" id="show-signup">Criar conta</button></div><h2 id="auth-title">Que bom ter você de volta.</h2><p class="muted" id="auth-subtitle">Entre para continuar de onde parou.</p>
+        <form id="auth-form"><label id="username-field" hidden>Nome de usuário<input id="auth-username" autocomplete="username" minlength="3" maxlength="24" placeholder="ex.: gamer_123"></label><label>E-mail<input id="auth-email" type="email" autocomplete="email" required placeholder="voce@exemplo.com"></label><label>Senha<input id="auth-password" type="password" autocomplete="current-password" minlength="6" required placeholder="Pelo menos 6 caracteres"></label><button class="primary-button full" type="submit" id="auth-submit">Entrar no Voxen <span>→</span></button><p class="form-note" id="auth-message" role="status"></p></form>
+        <p class="legal-note">Ao continuar, você concorda em usar o Voxen com respeito e responsabilidade.</p>
+      </div>
+    </section>
+    <section id="signed-in-view" class="content-layout" hidden>
+      <div class="feed-column">
+        <div id="feed-view"><div class="welcome-banner"><div class="welcome-copy"><p class="eyebrow">SEU MUNDO, SUAS CONEXÕES</p><h2>O que está rolando<span class="brand-dot">?</span></h2><p>Ideias, novidades e pessoas da sua comunidade.</p></div><div class="banner-symbol">✳</div></div>
+          <div class="feed-filter"><div><strong>Para você</strong><span class="filter-underline"></span></div><span class="muted small">Publicações recentes</span></div>
+          <form id="post-form" class="composer"><div class="avatar" id="composer-avatar">V</div><div class="composer-body"><textarea id="post-body" maxlength="3000" rows="2" placeholder="Compartilhe algo com a comunidade..."></textarea><div class="composer-actions"><span class="muted small">Seja gentil. Faça parte.</span><button class="primary-button compact" type="submit">Publicar ↗</button></div></div></form>
+          <div id="feed-list" class="feed-list"><div class="loading-card">Carregando seu feed…</div></div>
+        </div>
+        <div id="discover-view" hidden><div class="page-heading"><p class="eyebrow">ENCONTRE SUA GALERA</p><h2>Descobrir comunidades</h2><p class="muted">Explore grupos públicos e encontre seu próximo lugar favorito.</p></div><div id="discover-list" class="discover-list"></div></div>
+        <div id="group-view" hidden><div class="group-hero"><div class="group-cover-icon" id="group-cover-icon">V</div><div class="group-hero-copy"><p class="eyebrow">COMUNIDADE</p><h2 id="group-title">Grupo</h2><p id="group-description" class="muted"></p></div><button class="secondary-button" id="join-group-button" hidden>＋ Participar</button></div>
+          <div class="channel-workspace"><div class="channel-sidebar"><div class="channel-section-title">CANAIS DE TEXTO <button id="add-channel-button" title="Criar canal">＋</button></div><div id="channel-list"></div><div class="channel-section-title voice-title">SALAS DE VOZ</div><div id="voice-list"></div></div>
+            <div class="chat-panel"><div class="chat-header"><div><p class="eyebrow">CANAL DE TEXTO</p><h3 id="channel-title"># geral</h3></div><span class="secure-label">● Conectado ao Voxen</span></div><div id="message-list" class="message-list"><div class="empty-state"><span>✧</span><strong>O começo de uma conversa</strong><p>Envie a primeira mensagem deste canal.</p></div></div><form id="message-form" class="message-composer"><span class="hash-sign">＋</span><input id="message-body" maxlength="4000" placeholder="Mensagem em #geral" autocomplete="off"><button type="submit" aria-label="Enviar mensagem">➤</button></form></div>
+          </div>
+        </div>
+      </div>
+      <aside class="right-column"><div class="right-card profile-card"><div class="right-card-head"><strong>Seu perfil</strong><button id="logout-button" class="text-button">Sair</button></div><div class="profile-cover"></div><div class="profile-summary"><div class="avatar profile-big" id="profile-avatar">V</div><strong id="profile-display-name">Seu perfil</strong><span id="profile-username" class="muted small">@usuario</span><p class="muted small">Sua comunidade começa com você.</p></div></div>
+        <div class="right-card"><div class="right-card-head"><strong>Comece por aqui</strong><span class="sparkle">✦</span></div><div class="tip-row"><span class="tip-icon violet">＋</span><div><strong>Crie um grupo</strong><p>Junte pessoas com os mesmos interesses.</p><button class="inline-link" id="tip-create-group">Criar comunidade →</button></div></div><div class="tip-row"><span class="tip-icon green">↗</span><div><strong>Compartilhe uma ideia</strong><p>Publique algo no feed para começar.</p><button class="inline-link" id="tip-post">Fazer publicação →</button></div></div></div>
+        <div class="right-card ad-placeholder"><span class="ad-label">ESPAÇO DA COMUNIDADE</span><div class="ad-star">✳</div><strong>Um espaço para boas ideias.</strong><p>O Voxen está começando. Em breve, novidades por aqui.</p><span class="muted tiny">Sem anúncios intrusivos nesta versão.</span></div><footer class="mini-footer">Sobre · Privacidade · Regras<br><span>© 2026 Voxen Preview</span></footer>
+      </aside>
+    </section>
+  </main>
+</div>
+<dialog id="create-group-dialog" class="modal"><form id="create-group-form" class="modal-card"><button type="button" class="modal-close" data-close="create-group-dialog" aria-label="Fechar">×</button><p class="eyebrow">CRIE SEU ESPAÇO</p><h2>Nova comunidade</h2><p class="muted">Monte um lugar para reunir sua galera.</p><label>Nome da comunidade<input id="new-group-name" required minlength="2" maxlength="64" placeholder="ex.: Clube dos Gamers"></label><label>Identificador do grupo<input id="new-group-slug" required minlength="2" maxlength="64" pattern="[a-z0-9-]+" placeholder="clube-dos-gamers"></label><label>Descrição<textarea id="new-group-description" maxlength="500" rows="3" placeholder="Sobre o que é sua comunidade?"></textarea></label><p class="form-note" id="group-form-message" role="status"></p><button class="primary-button full" type="submit">Criar comunidade <span>→</span></button></form></dialog>
+<dialog id="help-dialog" class="modal"><div class="modal-card"><button class="modal-close" data-close="help-dialog" aria-label="Fechar">×</button><p class="eyebrow">VOXEN PREVIEW</p><h2>Estamos começando ✦</h2><p>Esta é a base inicial do Voxen. Cadastro, feed, comunidades, canais de texto e mensagens usam o Supabase. Salas de voz e compartilhamento de tela ainda precisam da integração WebRTC.</p><p class="muted small">Áudio e vídeo não são gravados nem enviados para armazenamento pelo Voxen.</p><button class="primary-button full" data-close="help-dialog">Entendi</button></div></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js"></script><script src="/app.js"></script>
+</body></html>
