@@ -238,16 +238,23 @@ function renderVoiceRooms(rooms) {
   if (!rooms.length) { root.innerHTML = '<p class="muted small">Nenhuma sala ainda.</p>'; return; }
   rooms.forEach((room) => {
     const wrap = document.createElement("div"); wrap.className = "voice-room-wrap";
-    const button = document.createElement("button"); button.className = "channel-item voice-channel-item" + (state.voice?.room.id === room.id ? " voice-active" : "");
-    button.innerHTML = '<span class="voice-room-icon">◖))</span><span class="voice-room-label">' + escapeHtml(room.name) + '</span>' + (state.voice?.room.id === room.id ? '<span class="voice-live-dot" title="Conectado"></span>' : '');
-    button.addEventListener("click", () => state.voice?.room.id === room.id ? toast("Você já está conectado a esta sala.") : joinVoiceRoom(room)); wrap.append(button);
-    if (state.voice?.room.id === room.id) {
+    const active = state.voice?.room.id === room.id;
+    const button = document.createElement("button"); button.className = "channel-item voice-channel-item" + (active ? " voice-active" : "");
+    button.innerHTML = '<span class="voice-room-icon">◖))</span><span class="voice-room-label">' + escapeHtml(room.name) + '</span>' + (active ? '<span class="voice-live-dot" title="Conectado"></span>' : '');
+    button.addEventListener("click", () => active ? toast("Você já está conectado a esta sala.") : joinVoiceRoom(room)); wrap.append(button);
+    if (active) {
       const child = document.createElement("div"); child.className = "voice-room-participants";
-      const member = document.createElement("div"); member.className = "voice-room-self";
-      const avatar = document.createElement("span"); avatar.className = "voice-self-avatar"; avatar.textContent = initials(state.profile?.display_name || state.profile?.username || "P");
-      if (state.profile?.avatar_url) { avatar.style.backgroundImage = "url(" + JSON.stringify(state.profile.avatar_url) + ")"; avatar.classList.add("has-image"); }
-      const name = document.createElement("span"); name.textContent = state.profile?.display_name || state.profile?.username || "Você";
-      member.append(avatar, name); child.append(member); wrap.append(child);
+      const presenceEntries = state.voice?.participants || [];
+      const entries = [...new Map(presenceEntries.filter((entry) => entry.user_id).map((entry) => [entry.user_id, entry])).values()];
+      if (!entries.some((entry) => entry.user_id === state.user?.id)) entries.unshift({ user_id: state.user?.id, display_name: state.profile?.display_name || state.profile?.username || "Você", username: state.profile?.username, avatar_url: state.profile?.avatar_url || null });
+      entries.forEach((entry) => {
+        const member = document.createElement("div"); member.className = "voice-room-self";
+        const avatar = document.createElement("span"); avatar.className = "voice-self-avatar"; avatar.textContent = initials(entry.display_name || entry.username || "P");
+        if (entry.avatar_url) { avatar.style.backgroundImage = "url(" + JSON.stringify(entry.avatar_url) + ")"; avatar.classList.add("has-image"); }
+        const name = document.createElement("span"); name.textContent = entry.display_name || entry.username || (entry.user_id === state.user?.id ? "Você" : "Membro");
+        member.append(avatar, name); child.append(member);
+      });
+      wrap.append(child);
     }
     root.append(wrap);
   });
