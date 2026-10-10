@@ -50,7 +50,7 @@ async function refreshProfile() {
   if (error) throw error;
   if (!data) throw new Error("Seu perfil ainda não foi criado. Confirme o e-mail, entre novamente ou verifique o gatilho de cadastro no Supabase.");
   state.profile = data; const display = data.display_name || data.username;
-  $("#profile-display-name").textContent = display; $("#profile-username").textContent = "@" + data.username;
+  $("#profile-display-name").textContent = display; $("#profile-username").textContent = "@" + data.username; const dockName = $("#dock-display-name"); if (dockName) dockName.textContent = display;
   $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
   [$("#profile-avatar"), $("#top-avatar"), $("#composer-avatar"), $("#profile-button")].forEach((el) => {
     if (!el) return;
@@ -408,7 +408,7 @@ async function joinVoiceRoom(room) {
 function updateVoiceDock() {
   const active = !!state.voice;
   const dock = $("#voice-dock"); if (dock) dock.hidden = !active;
-  const name = $("#voice-dock-name"); if (name) name.textContent = active ? state.voice.room.name : "";
+  const name = $("#voice-dock-name"); if (name) name.textContent = active ? state.voice.room.name : ""; const status = $("#voice-dock-status"); if (status) status.textContent = active ? "Conectado · voz ativa" : ""; const quality = $("#voice-quality"); if (quality) { quality.className = "voice-quality good"; quality.textContent = "● Conectado"; }
   const mute = $("#voice-dock-mute"); if (mute) mute.textContent = state.voice?.muted ? "🎙️" : "🎤";
   const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "Parar tela" : "Compartilhar tela";
 }
@@ -539,7 +539,7 @@ function openProfileEditor() {
   $("#profile-dialog").showModal();
 }
 $("#profile-button").addEventListener("click", openProfileEditor);
-$("#top-avatar").addEventListener("click", openProfileEditor);
+$("#top-avatar").addEventListener("click", openProfileEditor); $("#dock-profile-settings")?.addEventListener("click", openProfileEditor);
 $("#profile-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('button[type="submit"]');
