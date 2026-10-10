@@ -19,7 +19,14 @@ Depois de cada commit na branch conectada, a Vercel pode criar um novo deploy au
 ## Supabase
 O front-end usa a URL do projeto e uma **publishable key**, própria para uso público no navegador. Nunca adicione uma service_role ou sb_secret no repositório.
 
-O schema SQL é aplicado diretamente no projeto Supabase Voxen e contém perfis, grupos, membros, canais de texto, salas de voz (metadados), mensagens, convites, publicações e curtidas, com RLS.
+O schema SQL é aplicado no projeto Supabase Voxen e contém perfis, grupos, membros, canais de texto, salas de voz (metadados), mensagens, convites, publicações e curtidas, com RLS. As correções incrementais também ficam em `supabase/migrations/`.
+
+### Configuração de autenticação
+No painel Supabase, abra **Authentication → URL Configuration** e configure:
+- **Site URL** para o domínio de produção do Voxen na Vercel.
+- **Redirect URLs** com o domínio de produção do Voxen e, se usar previews, `https://*.vercel.app/**` (ou adicione os domínios de preview explicitamente).
+
+O app oferece cadastro com e-mail, senha e nome de jogador, login, recuperação de senha e edição do perfil. Se a confirmação de e-mail estiver ativa, o jogador precisa confirmar o e-mail antes de entrar.
 
 ## Áudio e vídeo
 Esta versão não captura, transmite, grava ou armazena áudio/vídeo. As salas de voz são apenas registros de metadados. A próxima etapa pode adicionar WebRTC com consentimento explícito do navegador; o sistema não deve salvar gravações.
