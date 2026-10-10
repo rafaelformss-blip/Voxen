@@ -242,8 +242,25 @@ async function makeVoicePeer(remoteId) {
   pc.onconnectionstatechange = () => {
     if (["failed", "closed"].includes(pc.connectionState)) removeVoicePeer(remoteId);
   };
+  pc.onsignalingstatechange = () => {
+    if (pc.signalingState === "stable" && peer.needsNegotiation && state.voice === voice) {
+      peer.needsNegotiation = false;
+      renegotiateVoicePeer(remoteId, peer).catch((error) => console.warn("Renegociação WebRTC:", error));
+    }
+  };
   voice.peers.set(remoteId, peer);
   return peer;
+}
+async function renegotiateVoicePeer(remoteId, peer) {
+  if (!state.voice) return;
+  if (state.user.id.localeCompare(remoteId) > 0) {
+    await voiceSend(remoteId, "renegotiate", {});
+    return;
+  }
+  if (peer.pc.signalingState !== "stable") { peer.needsNegotiation = true; return; }
+  const offer = await peer.pc.createOffer();
+  await peer.pc.setLocalDescription(offer);
+  await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
 }
 async function flushVoiceIce(peer) {
   const voice = state.voice;
@@ -267,6 +284,8 @@ async function handleVoiceSignal({ payload }) {
     } else if (payload.kind === "answer" && peer) {
       await peer.pc.setRemoteDescription(new RTCSessionDescription(payload.data));
       await flushVoiceIce(peer);
+    } else if (payload.kind === "renegotiate") {
+      if (state.user.id.localeCompare(payload.from) < 0 && peer) await renegotiateVoicePeer(payload.from, peer);
     } else if (payload.kind === "ice") {
       if (peer?.pc.remoteDescription) await peer.pc.addIceCandidate(new RTCIceCandidate(payload.data));
       else {
@@ -285,8 +304,7 @@ async function syncVoicePeers() {
     if (state.user.id.localeCompare(remoteId) < 0 && !voice.peers.has(remoteId)) {
       try {
         const peer = await makeVoicePeer(remoteId);
-        const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
-        await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
+        await renegotiateVoicePeer(remoteId, peer);
       } catch (error) { console.warn("Não foi possível iniciar conexão de voz:", error); }
     }
   }
@@ -351,8 +369,7 @@ async function startScreenShare() {
     track.addEventListener("ended", () => stopScreenShare());
     for (const [remoteId, peer] of voice.peers) {
       peer.screenSender = peer.pc.addTrack(track, stream);
-      const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
-      await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
+      await renegotiateVoicePeer(remoteId, peer);
     }
     $("#voice-share-button").textContent = "Parar compartilhamento";
     toast("Compartilhamento de tela iniciado.");
@@ -367,10 +384,8 @@ async function stopScreenShare() {
   for (const [remoteId, peer] of voice.peers) {
     const sender = peer.screenSender;
     if (sender) { try { peer.pc.removeTrack(sender); } catch {} peer.screenSender = null; }
-    try {
-      const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
-      await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
-    } catch (error) { console.warn("Não foi possível encerrar compartilhamento:", error); }
+    try { await renegotiateVoicePeer(remoteId, peer); }
+    catch (error) { console.warn("Não foi possível encerrar compartilhamento:", error); }
   }
   $("#voice-share-button").textContent = "Compartilhar tela";
 }
