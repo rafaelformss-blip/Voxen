@@ -3,7 +3,7 @@ const SUPABASE_URL = "https://kldphrwrdpdbeidgvqfl.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JQbVo4uU_fykam905ziYbA_cFcKpIar";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (selector) => document.querySelector(selector);
-const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null };
+const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null, voice: null };
 let toastTimer;
 function toast(message) {
   const node = $("#toast"); node.textContent = message; node.classList.add("show");
@@ -192,9 +192,206 @@ function renderVoiceRooms(rooms) {
   if (!rooms.length) { root.innerHTML = '<p class="muted small">Nenhuma sala ainda.</p>'; return; }
   rooms.forEach((room) => {
     const button = document.createElement("button"); button.className = "channel-item"; button.innerHTML = '<span>◖))</span>' + escapeHtml(room.name);
-    button.addEventListener("click", () => toast("Salas de voz serão ativadas na próxima etapa com WebRTC. Nenhum áudio é gravado.")); root.append(button);
+    button.addEventListener("click", () => joinVoiceRoom(room)); root.append(button);
   });
 }
+
+const VOICE_ICE_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" }
+];
+function voiceSend(to, kind, data) {
+  const voice = state.voice;
+  if (!voice?.channel) return Promise.resolve();
+  return voice.channel.send({ type: "broadcast", event: "signal", payload: { from: state.user.id, to, kind, data } });
+}
+function voiceMediaCard(peerId) {
+  const root = $("#voice-media-grid");
+  let card = root.querySelector('[data-peer-id="' + CSS.escape(peerId) + '"]');
+  if (card) return card;
+  card = document.createElement("div"); card.className = "voice-media-card"; card.dataset.peerId = peerId;
+  const label = document.createElement("strong"); label.textContent = "Participante " + peerId.slice(0, 6);
+  const audio = document.createElement("audio"); audio.autoplay = true; audio.playsInline = true;
+  const video = document.createElement("video"); video.autoplay = true; video.playsInline = true; video.hidden = true;
+  card.append(label, audio, video); root.append(card);
+  return card;
+}
+async function makeVoicePeer(remoteId) {
+  if (state.voice?.peers.has(remoteId)) return state.voice.peers.get(remoteId);
+  const voice = state.voice;
+  if (!voice) return null;
+  const pc = new RTCPeerConnection({ iceServers: VOICE_ICE_SERVERS });
+  const peer = { pc, remoteId, audioStream: new MediaStream(), videoStream: new MediaStream(), card: null };
+  peer.card = voiceMediaCard(remoteId);
+  voice.localStream.getAudioTracks().forEach((track) => pc.addTrack(track, voice.localStream));
+  if (voice.screenStream) voice.screenStream.getVideoTracks().forEach((track) => { peer.screenSender = pc.addTrack(track, voice.screenStream); });
+  pc.onicecandidate = (event) => { if (event.candidate) voiceSend(remoteId, "ice", event.candidate.toJSON()); };
+  pc.ontrack = (event) => {
+    if (!state.voice || state.voice !== voice) return;
+    const track = event.track;
+    if (track.kind === "audio") {
+      peer.audioStream.addTrack(track);
+      const audio = peer.card.querySelector("audio"); audio.srcObject = peer.audioStream;
+      audio.play().catch(() => {});
+    } else if (track.kind === "video") {
+      peer.videoStream.addTrack(track);
+      const video = peer.card.querySelector("video"); video.srcObject = peer.videoStream; video.hidden = false;
+      video.play().catch(() => {});
+    }
+  };
+  pc.onconnectionstatechange = () => {
+    if (["failed", "closed"].includes(pc.connectionState)) removeVoicePeer(remoteId);
+  };
+  voice.peers.set(remoteId, peer);
+  return peer;
+}
+async function flushVoiceIce(peer) {
+  const voice = state.voice;
+  const queued = voice?.pendingIce.get(peer.remoteId) || [];
+  voice?.pendingIce.delete(peer.remoteId);
+  for (const candidate of queued) {
+    try { await peer.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (error) { console.warn("ICE candidate:", error); }
+  }
+}
+async function handleVoiceSignal({ payload }) {
+  const voice = state.voice;
+  if (!voice || !payload || payload.to !== state.user.id || payload.from === state.user.id) return;
+  try {
+    let peer = voice.peers.get(payload.from);
+    if (payload.kind === "offer") {
+      peer = peer || await makeVoicePeer(payload.from);
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(payload.data));
+      await flushVoiceIce(peer);
+      const answer = await peer.pc.createAnswer(); await peer.pc.setLocalDescription(answer);
+      await voiceSend(payload.from, "answer", peer.pc.localDescription.toJSON());
+    } else if (payload.kind === "answer" && peer) {
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(payload.data));
+      await flushVoiceIce(peer);
+    } else if (payload.kind === "ice") {
+      if (peer?.pc.remoteDescription) await peer.pc.addIceCandidate(new RTCIceCandidate(payload.data));
+      else {
+        const queue = voice.pendingIce.get(payload.from) || []; queue.push(payload.data); voice.pendingIce.set(payload.from, queue);
+      }
+    }
+  } catch (error) { console.warn("Sinalização WebRTC:", error); }
+}
+async function syncVoicePeers() {
+  const voice = state.voice;
+  if (!voice?.channel) return;
+  const presence = voice.channel.presenceState();
+  const remoteIds = [...new Set(Object.values(presence).flat().map((entry) => entry.user_id).filter((id) => id && id !== state.user.id))];
+  $("#voice-status").textContent = "Conectado · " + (remoteIds.length + 1) + " participante(s)";
+  for (const remoteId of remoteIds) {
+    if (state.user.id.localeCompare(remoteId) < 0 && !voice.peers.has(remoteId)) {
+      try {
+        const peer = await makeVoicePeer(remoteId);
+        const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
+        await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
+      } catch (error) { console.warn("Não foi possível iniciar conexão de voz:", error); }
+    }
+  }
+}
+async function joinVoiceRoom(room) {
+  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+    toast("Este navegador não oferece suporte a WebRTC. Use uma versão recente do Chrome, Edge, Firefox ou Safari.");
+    return;
+  }
+  if (state.voice) await leaveVoiceRoom(false);
+  const { data: membership, error: membershipError } = await supabase.from("group_members").select("user_id").eq("group_id", room.group_id).eq("user_id", state.user.id).maybeSingle();
+  if (membershipError) { toast(membershipError.message); return; }
+  if (!membership) { toast("Entre na comunidade antes de participar da sala de voz."); return; }
+  $("#voice-room-name").textContent = room.name;
+  $("#voice-status").textContent = "Solicitando acesso ao microfone…";
+  $("#voice-media-grid").replaceChildren();
+  $("#voice-dialog").showModal();
+  try {
+    const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const voice = { room, channel: null, localStream, screenStream: null, peers: new Map(), pendingIce: new Map(), muted: false };
+    state.voice = voice;
+    const channel = supabase.channel("voxen-voice-" + room.id, { config: { broadcast: { self: false }, presence: { key: state.user.id } } });
+    voice.channel = channel;
+    channel.on("broadcast", { event: "signal" }, handleVoiceSignal);
+    channel.on("presence", { event: "sync" }, () => syncVoicePeers().catch((error) => console.warn("Presença de voz:", error)));
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED" && state.voice === voice) {
+        await channel.track({ user_id: state.user.id, username: state.profile?.username || "player", joined_at: new Date().toISOString() });
+        await syncVoicePeers();
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        $("#voice-status").textContent = "Não foi possível conectar à sala. Verifique sua conexão.";
+      }
+    });
+    $("#voice-mute-button").textContent = "Silenciar microfone";
+    $("#voice-share-button").textContent = "Compartilhar tela";
+  } catch (error) {
+    await leaveVoiceRoom(false);
+    $("#voice-dialog").close();
+    toast(error.name === "NotAllowedError" ? "Permita o uso do microfone no navegador para entrar na sala." : "Não foi possível acessar o microfone: " + error.message);
+  }
+}
+function removeVoicePeer(remoteId) {
+  const voice = state.voice, peer = voice?.peers.get(remoteId);
+  if (!peer) return;
+  try { peer.pc.close(); } catch {}
+  peer.card?.remove(); voice.peers.delete(remoteId);
+}
+async function toggleVoiceMute() {
+  const voice = state.voice; if (!voice) return;
+  voice.muted = !voice.muted;
+  voice.localStream.getAudioTracks().forEach((track) => { track.enabled = !voice.muted; });
+  $("#voice-mute-button").textContent = voice.muted ? "Ativar microfone" : "Silenciar microfone";
+}
+async function startScreenShare() {
+  const voice = state.voice; if (!voice) return;
+  if (!navigator.mediaDevices?.getDisplayMedia) { toast("Seu navegador não oferece compartilhamento de tela."); return; }
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+    if (state.voice !== voice) { stream.getTracks().forEach((track) => track.stop()); return; }
+    voice.screenStream = stream;
+    const track = stream.getVideoTracks()[0];
+    track.addEventListener("ended", () => stopScreenShare());
+    for (const [remoteId, peer] of voice.peers) {
+      peer.screenSender = peer.pc.addTrack(track, stream);
+      const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
+      await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
+    }
+    $("#voice-share-button").textContent = "Parar compartilhamento";
+    toast("Compartilhamento de tela iniciado.");
+  } catch (error) {
+    if (error.name !== "NotAllowedError") toast("Não foi possível compartilhar a tela: " + error.message);
+  }
+}
+async function stopScreenShare() {
+  const voice = state.voice; if (!voice?.screenStream) return;
+  const stream = voice.screenStream; voice.screenStream = null;
+  stream.getTracks().forEach((track) => track.stop());
+  for (const [remoteId, peer] of voice.peers) {
+    const sender = peer.screenSender;
+    if (sender) { try { peer.pc.removeTrack(sender); } catch {} peer.screenSender = null; }
+    try {
+      const offer = await peer.pc.createOffer(); await peer.pc.setLocalDescription(offer);
+      await voiceSend(remoteId, "offer", peer.pc.localDescription.toJSON());
+    } catch (error) { console.warn("Não foi possível encerrar compartilhamento:", error); }
+  }
+  $("#voice-share-button").textContent = "Compartilhar tela";
+}
+async function leaveVoiceRoom(closeDialog = true) {
+  const voice = state.voice;
+  if (voice) {
+    state.voice = null;
+    try { if (voice.channel) { await voice.channel.untrack(); await supabase.removeChannel(voice.channel); } } catch {}
+    voice.peers.forEach((peer) => { try { peer.pc.close(); } catch {} peer.card?.remove(); });
+    voice.screenStream?.getTracks().forEach((track) => track.stop());
+    voice.localStream?.getTracks().forEach((track) => track.stop());
+  }
+  $("#voice-media-grid")?.replaceChildren();
+  if (closeDialog && $("#voice-dialog").open) $("#voice-dialog").close();
+}
+$("#voice-mute-button").addEventListener("click", toggleVoiceMute);
+$("#voice-share-button").addEventListener("click", () => state.voice?.screenStream ? stopScreenShare() : startScreenShare());
+$("#voice-leave-button").addEventListener("click", () => leaveVoiceRoom(true));
+$("#voice-close-button").addEventListener("click", () => leaveVoiceRoom(true));
+$("#voice-dialog").addEventListener("cancel", () => { leaveVoiceRoom(false); });
+
 async function openChannel(channel) {
   if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
   state.selectedChannel = channel; renderChannels(); $("#channel-title").textContent = "# " + channel.name;
@@ -305,6 +502,7 @@ $("#install-button").addEventListener("click", async () => {
 window.addEventListener("appinstalled", () => toast("Voxen instalado!"));
 async function onAuthChange(user) {
   if (!user) {
+    if (state.voice) await leaveVoiceRoom(false);
     if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
     if (state.feedSubscription) { await supabase.removeChannel(state.feedSubscription); state.feedSubscription = null; }
   }
