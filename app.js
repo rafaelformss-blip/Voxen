@@ -102,11 +102,11 @@ function renderDiscover() {
 }
 async function loadFeed() {
   const root = $("#feed-list"); root.innerHTML = '<div class="loading-card">Carregando publicações…</div>';
-  const { data, error } = await supabase.from("feed_posts").select("id,body,created_at,author_id,profiles(display_name,username)").eq("visibility", "public").order("created_at", { ascending: false }).limit(50);
+  const { data, error } = await supabase.from("feed_posts").select("id,body,created_at,author_id,author:profiles!feed_posts_author_id_fkey(display_name,username)").eq("visibility", "public").order("created_at", { ascending: false }).limit(50);
   if (error) throw error; root.replaceChildren();
   if (!data?.length) { root.innerHTML = '<div class="empty-state"><span>✧</span><strong>Seu feed começa aqui</strong><p>Compartilhe a primeira ideia com a comunidade.</p></div>'; return; }
   data.forEach((post) => {
-    const author = post.profiles || {}, name = author.display_name || author.username || "Membro Voxen", card = document.createElement("article");
+    const author = post.author || {}, name = author.display_name || author.username || "Membro Voxen", card = document.createElement("article");
     card.className = "post-card";
     card.innerHTML = '<div class="post-head"><div class="avatar">' + escapeHtml(initials(name)) + '</div><div><strong>' + escapeHtml(name) + '</strong><div class="post-meta">@' + escapeHtml(author.username || "voxen") + ' · ' + escapeHtml(formatDate(post.created_at)) + '</div></div></div><p class="post-body"></p><div class="post-actions"><button type="button" aria-label="Curtir publicação">♡ Curtir</button><span>✧ Publicação da comunidade</span></div>';
     card.querySelector(".post-body").textContent = post.body;
@@ -164,7 +164,7 @@ async function loadGroupMembers(groupId) {
   onlineRoot.replaceChildren(); offlineRoot.replaceChildren();
   const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name,avatar_url)").eq("group_id", groupId);
   if (error) { console.warn("Membros da comunidade:", error.message); return; }
-  const members = [...new Map((data || []).map((m) => [m.user_id, m])).values()]; $("#member-count").textContent = String(members.length);
+  const members = [...new Map((data || []).map((m) => [String(m.profiles?.username || m.profiles?.display_name || m.user_id).trim().toLowerCase(), m])).values()]; $("#member-count").textContent = String(members.length);
   // Presence in text/voice is temporary; the list below is a member directory, not a fabricated online indicator.
   members.forEach((membership) => {
     const profile = membership.profiles || {}, item = document.createElement("div"); item.className = "member-item";
@@ -251,8 +251,10 @@ function renderVoiceRooms(rooms) {
         const member = document.createElement("div"); member.className = "voice-room-self";
         const avatar = document.createElement("span"); avatar.className = "voice-self-avatar"; avatar.textContent = initials(entry.display_name || entry.username || "P");
         if (entry.avatar_url) { avatar.style.backgroundImage = "url(" + JSON.stringify(entry.avatar_url) + ")"; avatar.classList.add("has-image"); }
-        const name = document.createElement("span"); name.textContent = entry.display_name || entry.username || (entry.user_id === state.user?.id ? "Você" : "Membro");
-        member.append(avatar, name); child.append(member);
+        const name = document.createElement("span"); name.className = "voice-participant-name"; name.textContent = entry.display_name || entry.username || (entry.user_id === state.user?.id ? "Você" : "Membro");
+        const speaking = document.createElement("span"); speaking.className = "voice-speaking-indicator"; speaking.textContent = "▮▮▮"; speaking.title = "Falando"; speaking.setAttribute("aria-label", "Falando");
+        const peer = state.voice?.peers.get(entry.user_id); member.classList.toggle("is-speaking", !!peer?.isSpeaking);
+        member.append(avatar, name, speaking); child.append(member);
       });
       wrap.append(child);
     }
@@ -280,6 +282,26 @@ function voiceMediaCard(peerId) {
   card.append(label, audio, video); root.append(card);
   return card;
 }
+function monitorVoiceSpeaking(peer) {
+  if (peer.speakingContext || !peer.audioStream?.getAudioTracks().length) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const context = new AudioContextClass(), analyser = context.createAnalyser();
+    analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.72;
+    context.createMediaStreamSource(peer.audioStream).connect(analyser);
+    peer.speakingContext = context; peer.speakingAnalyser = analyser;
+    const samples = new Uint8Array(analyser.fftSize);
+    peer.speakingTimer = window.setInterval(() => {
+      if (!state.voice || !state.voice.peers.has(peer.remoteId)) return;
+      analyser.getByteTimeDomainData(samples);
+      let energy = 0;
+      for (const sample of samples) { const value = (sample - 128) / 128; energy += value * value; }
+      const speaking = Math.sqrt(energy / samples.length) > 0.035;
+      if (peer.isSpeaking !== speaking) { peer.isSpeaking = speaking; renderVoiceRooms(state.voiceRooms); }
+    }, 140);
+  } catch (error) { console.warn("Medidor de voz indisponível:", error); }
+}
 async function makeVoicePeer(remoteId) {
   if (state.voice?.peers.has(remoteId)) return state.voice.peers.get(remoteId);
   const voice = state.voice;
@@ -296,6 +318,7 @@ async function makeVoicePeer(remoteId) {
     if (track.kind === "audio") {
       peer.audioStream.addTrack(track);
       const audio = peer.card.querySelector("audio"); audio.srcObject = peer.audioStream; audio.muted = !!voice.outputMuted;
+      monitorVoiceSpeaking(peer);
       audio.play().catch(() => {});
     } else if (track.kind === "video") {
       peer.videoStream.addTrack(track);
@@ -444,6 +467,8 @@ $("#voice-dock-leave")?.addEventListener("click", () => leaveVoiceRoom(true));
 function removeVoicePeer(remoteId) {
   const voice = state.voice, peer = voice?.peers.get(remoteId);
   if (!peer) return;
+  if (peer.speakingTimer) clearInterval(peer.speakingTimer);
+  if (peer.speakingContext) peer.speakingContext.close().catch(() => {});
   try { peer.pc.close(); } catch {}
   peer.card?.remove(); voice.peers.delete(remoteId);
 }
