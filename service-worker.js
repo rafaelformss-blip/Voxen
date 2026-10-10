@@ -1,5 +1,5 @@
-const CACHE_NAME = "voxen-shell-v2-20261010";
-const APP_SHELL = ["/", "/index.html", "/styles.css?v=20261010-4", "/app.js?v=20261010-4", "/manifest.json", "/icon.svg"];
+const CACHE_NAME = "voxen-shell-v3-20261010";
+const APP_SHELL = ["/", "/index.html", "/styles.css?v=20261010-5", "/app.js?v=20261010-5", "/manifest.json", "/icon.svg"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
   self.skipWaiting();
