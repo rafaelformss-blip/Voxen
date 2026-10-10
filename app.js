@@ -295,7 +295,7 @@ async function makeVoicePeer(remoteId) {
     const track = event.track;
     if (track.kind === "audio") {
       peer.audioStream.addTrack(track);
-      const audio = peer.card.querySelector("audio"); audio.srcObject = peer.audioStream;
+      const audio = peer.card.querySelector("audio"); audio.srcObject = peer.audioStream; audio.muted = !!voice.outputMuted;
       audio.play().catch(() => {});
     } else if (track.kind === "video") {
       peer.videoStream.addTrack(track);
