@@ -161,3 +161,45 @@
  .app-shell.immersive-mode .voice-dock{left:56px;width:160px;bottom:62px}
  .app-shell.immersive-mode .channel-sidebar{padding-bottom:75px!important}
 }
+
+
+/* Fixed horizontal account bar across navigation; connected voice dock directly above. */
+.rail-profile-dock{display:block!important;position:static!important;width:auto!important}
+.account-dock{position:fixed!important;z-index:50;left:0;bottom:0;width:276px;min-height:58px;box-sizing:border-box;display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:9px 12px;background:#17181f;border-top:1px solid #30323c;border-right:1px solid #30323c;border-radius:0!important}
+.account-dock .account-avatar{width:34px!important;height:34px!important;flex:0 0 34px;border-radius:50%!important;background-size:cover!important;background-position:center!important}
+.account-dock-copy{flex:1;min-width:0;text-align:left}
+.account-dock-copy strong{display:block;max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#f0f1f7}
+.account-dock-copy span{display:flex;align-items:center;gap:5px;font-size:10px;color:#a3a8b8;margin-top:3px}
+.account-online-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#55d6a2;flex:0 0 7px}
+.account-settings{width:32px!important;height:32px!important;flex:0 0 32px;border:0;background:transparent;color:#b8bdcb;border-radius:7px;font-size:17px}
+.account-settings:hover{background:#292b35;color:#fff}
+.voice-dock{position:fixed!important;z-index:49;left:8px;bottom:66px;width:260px!important;min-height:0;box-sizing:border-box;display:grid!important;grid-template-columns:10px minmax(0,1fr) 24px;grid-template-rows:auto auto auto;align-items:center;gap:5px 8px;padding:10px 11px;background:#172d28;border:1px solid #2b6956;border-radius:9px;color:#e4fff5;box-shadow:0 10px 35px #0006}
+.voice-dock[hidden]{display:none!important}
+.voice-dock-title{display:contents}
+.voice-dock-indicator{grid-column:1;grid-row:1;width:8px;height:8px;background:#55d6a2;border-radius:50%;box-shadow:0 0 0 4px #55d6a222}
+#voice-dock-name{grid-column:2;grid-row:1;writing-mode:initial;max-height:none;max-width:175px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:12px;font-weight:750}
+.voice-dock-title button{grid-column:3;grid-row:1;border:0;background:transparent;color:#c2c8d2;font-size:20px;line-height:1}
+.voice-dock-status-row{grid-column:2/4;grid-row:2;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#voice-dock-status{font-size:10px;color:#8edabf}
+.voice-dock-actions{grid-column:1/-1;grid-row:3;display:flex;flex-direction:row;gap:6px;margin-top:5px}
+.voice-dock-actions button{flex:1;width:auto;min-width:0;min-height:32px;font-size:10px;background:#245044;border:1px solid #326d5b;border-radius:6px;padding:6px 4px;color:#e4fff5}
+.app-shell.immersive-mode .account-dock{left:58px;width:205px;min-height:58px;padding:8px 9px;border-left:1px solid #30323c}
+.app-shell.immersive-mode .account-dock-copy strong{max-width:90px;font-size:11px}
+.app-shell.immersive-mode .account-settings{width:27px!important;flex-basis:27px}
+.app-shell.immersive-mode .voice-dock{left:66px;bottom:64px;width:188px!important;padding:9px}
+.app-shell.immersive-mode #voice-dock-name{max-width:125px;font-size:11px}
+.app-shell.immersive-mode .voice-dock-actions button{font-size:9px;min-height:30px}
+.app-shell.immersive-mode .channel-sidebar{padding-bottom:82px!important}
+.voice-participant-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voice-speaking-indicator{display:none;flex:0 0 auto;font-size:9px;letter-spacing:-2px;color:#65e6b6;line-height:1}
+.voice-room-self.is-speaking .voice-speaking-indicator{display:inline-block;animation:voxen-speaking-pulse .7s ease-in-out infinite alternate}
+.voice-room-self.is-speaking .voice-participant-name{color:#78edc4}
+@keyframes voxen-speaking-pulse{from{opacity:.4;transform:scaleY(.7)}to{opacity:1;transform:scaleY(1.2)}}
+@media(max-width:760px){
+ .account-dock{width:calc(100vw - 58px);left:58px;padding:7px 9px}
+ .account-dock-copy strong{max-width:calc(100vw - 155px)}
+ .voice-dock{left:62px;bottom:64px;width:min(260px,calc(100vw - 72px))!important}
+ .app-shell.immersive-mode .account-dock{left:58px;width:calc(100vw - 58px)}
+ .app-shell.immersive-mode .voice-dock{left:62px;width:min(235px,calc(100vw - 72px))!important}
+ .app-shell.immersive-mode .channel-sidebar{padding-bottom:84px!important}
+}
