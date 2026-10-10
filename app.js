@@ -253,7 +253,7 @@ function renderVoiceRooms(rooms) {
         if (entry.avatar_url) { avatar.style.backgroundImage = "url(" + JSON.stringify(entry.avatar_url) + ")"; avatar.classList.add("has-image"); }
         const name = document.createElement("span"); name.className = "voice-participant-name"; name.textContent = entry.display_name || entry.username || (entry.user_id === state.user?.id ? "Você" : "Membro");
         const speaking = document.createElement("span"); speaking.className = "voice-speaking-indicator"; speaking.textContent = "▮▮▮"; speaking.title = "Falando"; speaking.setAttribute("aria-label", "Falando");
-        const peer = state.voice?.peers.get(entry.user_id); member.classList.toggle("is-speaking", !!peer?.isSpeaking);
+        const peer = state.voice?.peers.get(entry.user_id); member.classList.toggle("is-speaking", entry.user_id === state.user?.id ? !!state.voice?.localSpeaking : !!peer?.isSpeaking);
         member.append(avatar, name, speaking); child.append(member);
       });
       wrap.append(child);
@@ -281,6 +281,25 @@ function voiceMediaCard(peerId) {
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true; video.hidden = true;
   card.append(label, audio, video); root.append(card);
   return card;
+}
+function monitorLocalVoiceSpeaking(voice) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass || !voice.localStream?.getAudioTracks().length) return;
+  try {
+    const context = new AudioContextClass(), analyser = context.createAnalyser();
+    analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.72;
+    context.createMediaStreamSource(voice.localStream).connect(analyser);
+    voice.localSpeakingContext = context;
+    const samples = new Uint8Array(analyser.fftSize);
+    voice.localSpeakingTimer = window.setInterval(() => {
+      if (state.voice !== voice) return;
+      analyser.getByteTimeDomainData(samples);
+      let energy = 0;
+      for (const sample of samples) { const value = (sample - 128) / 128; energy += value * value; }
+      const speaking = !voice.muted && Math.sqrt(energy / samples.length) > 0.035;
+      if (voice.localSpeaking !== speaking) { voice.localSpeaking = speaking; renderVoiceRooms(state.voiceRooms); }
+    }, 140);
+  } catch (error) { console.warn("Medidor do microfone indisponível:", error); }
 }
 function monitorVoiceSpeaking(peer) {
   if (peer.speakingContext || !peer.audioStream?.getAudioTracks().length) return;
@@ -417,6 +436,7 @@ async function joinVoiceRoom(room) {
     const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const voice = { room, channel: null, localStream, screenStream: null, peers: new Map(), pendingIce: new Map(), muted: false };
     state.voice = voice;
+    monitorLocalVoiceSpeaking(voice);
     const channel = supabase.channel("voxen-voice-" + room.id, { config: { broadcast: { self: false }, presence: { key: state.user.id } } });
     voice.channel = channel;
     channel.on("broadcast", { event: "signal" }, handleVoiceSignal);
@@ -476,7 +496,9 @@ async function toggleVoiceMute() {
   const voice = state.voice; if (!voice) return;
   voice.muted = !voice.muted;
   voice.localStream.getAudioTracks().forEach((track) => { track.enabled = !voice.muted; });
+  if (voice.muted) { voice.localSpeaking = false; renderVoiceRooms(state.voiceRooms); }
   $("#voice-mute-button").textContent = voice.muted ? "Ativar microfone" : "Silenciar microfone";
+  updateVoiceDock();
 }
 async function startScreenShare() {
   const voice = state.voice; if (!voice) return;
@@ -508,11 +530,14 @@ async function stopScreenShare() {
     catch (error) { console.warn("Não foi possível encerrar compartilhamento:", error); }
   }
   $("#voice-share-button").textContent = "Compartilhar tela";
+  updateVoiceDock();
 }
 async function leaveVoiceRoom(closeDialog = true) {
   const voice = state.voice;
   if (voice) {
     state.voice = null;
+    if (voice.localSpeakingTimer) clearInterval(voice.localSpeakingTimer);
+    if (voice.localSpeakingContext) voice.localSpeakingContext.close().catch(() => {});
     try { if (voice.channel) { await voice.channel.untrack(); await supabase.removeChannel(voice.channel); } } catch {}
     voice.peers.forEach((peer) => { try { peer.pc.close(); } catch {} peer.card?.remove(); });
     voice.screenStream?.getTracks().forEach((track) => track.stop());
@@ -590,6 +615,7 @@ function openProfileEditor() {
   $("#profile-dialog").showModal();
 }
 $("#profile-button").addEventListener("click", openProfileEditor);
+$("#dock-profile-settings")?.addEventListener("click", openProfileEditor);
 $("#top-avatar").addEventListener("click", openProfileEditor); $("#dock-profile-settings")?.addEventListener("click", openProfileEditor);
 $("#profile-form").addEventListener("submit", async (event) => {
   event.preventDefault();
