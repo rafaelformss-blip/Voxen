@@ -52,7 +52,7 @@ async function refreshProfile() {
   state.profile = data; const display = data.display_name || data.username;
   $("#profile-display-name").textContent = display; $("#profile-username").textContent = "@" + data.username;
   $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
-  $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
+  $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você."; if (data.avatar_url) { $("#profile-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#top-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#composer-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; } if (data.avatar_url) { $("#profile-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#top-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#composer-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; }
   $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
 }
 async function loadGroups() {
@@ -72,6 +72,10 @@ function renderGroups() {
   if (!state.groups.length) list.innerHTML = '<p class="muted small empty-hint">Ainda não há grupos visíveis. Crie um ou descubra uma comunidade.</p>';
 }
 function showContent(which) {
+  const immersive = which === "group" || which === "chat";
+  $("#app-shell")?.classList.toggle("immersive-mode", immersive);
+  $("#back-home-button").hidden = !immersive;
+  $("#members-sidebar").hidden = which !== "group";
   $("#feed-view").hidden = which !== "feed"; $("#discover-view").hidden = which !== "discover"; $("#group-view").hidden = which !== "group";
   $("#breadcrumb-main").textContent = which === "group" ? "Comunidades" : "Comunidade";
   $("#breadcrumb-current").textContent = which === "feed" ? "Feed" : which === "discover" ? "Descobrir grupos" : (state.selectedGroup?.name || "Grupo");
@@ -149,6 +153,26 @@ $("#create-group-form").addEventListener("submit", async (event) => {
   } catch (error) { $("#group-form-message").textContent = error.message || "Não foi possível criar a comunidade."; }
   finally { button.disabled = false; }
 });
+
+async function loadGroupMembers(groupId) {
+  const onlineRoot = $("#online-members"), offlineRoot = $("#offline-members");
+  onlineRoot.replaceChildren(); offlineRoot.replaceChildren();
+  const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name,avatar_url)").eq("group_id", groupId);
+  if (error) { console.warn("Membros da comunidade:", error.message); return; }
+  const members = data || []; $("#member-count").textContent = String(members.length);
+  // Presence in text/voice is temporary; the list below is a member directory, not a fabricated online indicator.
+  members.forEach((membership) => {
+    const profile = membership.profiles || {}, item = document.createElement("div"); item.className = "member-item";
+    const avatar = document.createElement("span"); avatar.className = "member-avatar";
+    if (profile.avatar_url) { avatar.style.backgroundImage = "url('" + profile.avatar_url.replace(/'/g, "%27") + "')"; avatar.classList.add("has-image"); }
+    else avatar.textContent = initials(profile.display_name || profile.username || "P");
+    const label = document.createElement("span"); label.textContent = profile.display_name || profile.username || "Jogador";
+    item.append(avatar, label); offlineRoot.append(item);
+  });
+  if (!members.length) offlineRoot.innerHTML = '<p class="muted small">Ainda não há membros.</p>';
+  onlineRoot.innerHTML = '<p class="muted small">O status online será mostrado quando a presença dos membros estiver conectada.</p>';
+}
+
 async function openGroup(group) {
   state.selectedGroup = group; renderGroups(); showContent("group");
   $("#group-title").textContent = group.name; $("#group-description").textContent = group.description || "Bem-vindo a esta comunidade.";
@@ -158,13 +182,13 @@ async function openGroup(group) {
     const { data: membership, error: memberError } = await supabase.from("group_members").select("role").eq("group_id", group.id).eq("user_id", state.user.id).maybeSingle();
     if (memberError) throw memberError;
     const isMember = !!membership; $("#join-group-button").hidden = isMember;
-    $("#add-channel-button").hidden = !isMember || !["owner", "admin"].includes(membership.role);
+    $("#add-channel-button").hidden = !isMember || !["owner", "admin"].includes(membership.role); $("#add-voice-button").hidden = !isMember || !["owner", "admin"].includes(membership.role);
     const [channelsResult, voicesResult] = await Promise.all([
       supabase.from("text_channels").select("*").eq("group_id", group.id).order("position"),
       supabase.from("voice_rooms").select("*").eq("group_id", group.id).order("position")
     ]);
     if (channelsResult.error) throw channelsResult.error; if (voicesResult.error) throw voicesResult.error;
-    state.channels = channelsResult.data || []; renderChannels(); renderVoiceRooms(voicesResult.data || []);
+    state.channels = channelsResult.data || []; renderChannels(); renderVoiceRooms(voicesResult.data || []); await loadGroupMembers(group.id);
     if (!isMember) {
       state.selectedChannel = null; $("#channel-title").textContent = "Participe para conversar";
       $("#message-form").hidden = true; $("#message-list").innerHTML = '<div class="empty-state"><span>✧</span><strong>Entre nesta comunidade</strong><p>Você pode ver os canais públicos. Participe para ler e enviar mensagens.</p></div>';
@@ -442,6 +466,17 @@ $("#message-form").addEventListener("submit", async (event) => {
     const { data, error } = await supabase.from("messages").insert({ channel_id: state.selectedChannel.id, author_id: state.user.id, content }).select("id,content,created_at,author_id,profiles(display_name,username)").single();
     if (error) throw error; $("#message-body").value = ""; renderMessage(data); $("#message-list").scrollTop = $("#message-list").scrollHeight;
   } catch (error) { toast(error.message); } finally { button.disabled = false; }
+});
+$("#back-home-button").addEventListener("click", () => openFeed());
+$("#add-voice-button").addEventListener("click", async () => {
+  if (!state.selectedGroup) return;
+  const name = prompt("Nome da nova sala de voz (ex.: Geral):");
+  if (!name?.trim()) return;
+  try {
+    const { error } = await supabase.from("voice_rooms").insert({ group_id: state.selectedGroup.id, name: name.trim().slice(0, 64), position: 0 });
+    if (error) throw error;
+    await openGroup(state.selectedGroup); toast("Sala de voz criada!");
+  } catch (error) { toast(error.message); }
 });
 $("#add-channel-button").addEventListener("click", async () => {
   if (!state.selectedGroup) return; const name = prompt("Nome do novo canal (ex.: ajuda):"); if (!name || !name.trim()) return;
