@@ -355,7 +355,10 @@ async function syncVoicePeers() {
   const voice = state.voice;
   if (!voice?.channel) return;
   const presence = voice.channel.presenceState();
-  const remoteIds = [...new Set(Object.values(presence).flat().map((entry) => entry.user_id).filter((id) => id && id !== state.user.id))];
+  const presenceEntries = [...new Map(Object.values(presence).flat().filter((entry) => entry.user_id).map((entry) => [entry.user_id, entry])).values()];
+  voice.participants = presenceEntries;
+  const remoteIds = presenceEntries.map((entry) => entry.user_id).filter((id) => id !== state.user.id);
+  renderVoiceRooms(state.voiceRooms);
   for (const remoteId of voice.peers.keys()) if (!remoteIds.includes(remoteId)) removeVoicePeer(remoteId);
   $("#voice-status").textContent = "Conectado · " + (remoteIds.length + 1) + " participante(s)";
   for (const remoteId of remoteIds) {
@@ -390,7 +393,8 @@ async function joinVoiceRoom(room) {
     channel.on("presence", { event: "sync" }, () => syncVoicePeers().catch((error) => console.warn("Presença de voz:", error)));
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED" && state.voice === voice) {
-        await channel.track({ user_id: state.user.id, username: state.profile?.username || "player", joined_at: new Date().toISOString() });
+        await channel.track({ user_id: state.user.id, username: state.profile?.username || "player", display_name: state.profile?.display_name || state.profile?.username || "Você", avatar_url: state.profile?.avatar_url || null, joined_at: new Date().toISOString() });
+        renderVoiceRooms(state.voiceRooms);
         await syncVoicePeers();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         $("#voice-status").textContent = "Não foi possível conectar à sala. Verifique sua conexão."; toast("Não foi possível conectar à sala de voz.");
