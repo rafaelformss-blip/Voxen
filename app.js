@@ -73,7 +73,7 @@ function renderGroups() {
 }
 function showContent(which) {
   const immersive = which === "group" || which === "chat";
-  $("#app-shell")?.classList.toggle("immersive-mode", immersive);
+  document.querySelector(".app-shell")?.classList.toggle("immersive-mode", immersive);
   $("#back-home-button").hidden = !immersive;
   $("#members-sidebar").hidden = which !== "group";
   $("#feed-view").hidden = which !== "feed"; $("#discover-view").hidden = which !== "discover"; $("#group-view").hidden = which !== "group";
@@ -157,15 +157,14 @@ $("#create-group-form").addEventListener("submit", async (event) => {
 async function loadGroupMembers(groupId) {
   const onlineRoot = $("#online-members"), offlineRoot = $("#offline-members");
   onlineRoot.replaceChildren(); offlineRoot.replaceChildren();
-  const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name,avatar_url)").eq("group_id", groupId);
+  const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name)").eq("group_id", groupId);
   if (error) { console.warn("Membros da comunidade:", error.message); return; }
   const members = data || []; $("#member-count").textContent = String(members.length);
   // Presence in text/voice is temporary; the list below is a member directory, not a fabricated online indicator.
   members.forEach((membership) => {
     const profile = membership.profiles || {}, item = document.createElement("div"); item.className = "member-item";
     const avatar = document.createElement("span"); avatar.className = "member-avatar";
-    if (profile.avatar_url) { avatar.style.backgroundImage = "url('" + profile.avatar_url.replace(/'/g, "%27") + "')"; avatar.classList.add("has-image"); }
-    else avatar.textContent = initials(profile.display_name || profile.username || "P");
+    avatar.textContent = initials(profile.display_name || profile.username || "P");
     const label = document.createElement("span"); label.textContent = profile.display_name || profile.username || "Jogador";
     item.append(avatar, label); offlineRoot.append(item);
   });
