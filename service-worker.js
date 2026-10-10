@@ -13,7 +13,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
   event.respondWith(fetch(request).then((response) => {
-    if (response && response.ok && (request.mode === "navigate" || APP_SHELL.includes(url.pathname))) {
+    if (response && response.ok && (request.mode === "navigate" || APP_SHELL.some((asset) => new URL(asset, self.location.origin).pathname === url.pathname))) {
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
     }
