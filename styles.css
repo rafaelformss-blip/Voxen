@@ -62,3 +62,25 @@
 .app-shell.immersive-mode .message-composer{flex-shrink:0}
 @media(max-width:1000px){.app-shell.immersive-mode .content-layout{padding:8px}.app-shell.immersive-mode .workspace-row{height:calc(100vh - 142px)}.app-shell.immersive-mode .members-sidebar{flex-basis:150px;width:150px;padding:12px 8px}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:145px minmax(0,1fr)}}
 @media(max-width:760px){.app-shell.immersive-mode .workspace-row{height:calc(100vh - 145px);min-height:380px}.app-shell.immersive-mode .members-sidebar{display:none}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:112px minmax(0,1fr)}.app-shell.immersive-mode .group-hero{padding:8px 10px}}
+
+/* Community focus: collapse the "Seu espaço digital" sidebar entirely.
+   The global icon rail stays visible; the workspace takes over the full remaining viewport. */
+.app-shell.immersive-mode{grid-template-columns:68px minmax(0,1fr);gap:0}
+.app-shell.immersive-mode>.sidebar{display:none!important}
+.app-shell.immersive-mode>.main-area{grid-column:2;min-width:0;width:100%;max-width:none}
+.app-shell.immersive-mode .topbar{padding-left:16px}
+.app-shell.immersive-mode .content-layout{width:100%;max-width:none;margin:0;padding:10px 12px 12px}
+.app-shell.immersive-mode .feed-column{width:100%;max-width:none}
+.app-shell.immersive-mode #group-view{width:100%;max-width:none}
+.app-shell.immersive-mode .group-hero{width:100%;box-sizing:border-box}
+.app-shell.immersive-mode .workspace-row{width:100%;height:calc(100vh - 150px);min-height:400px}
+.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:150px minmax(0,1fr);flex:1 1 auto;width:auto;min-width:0}
+.app-shell.immersive-mode .members-sidebar{flex:0 0 175px;width:175px}
+.app-shell.immersive-mode #nav-feed{border-color:#8c79ff}
+@media(max-width:760px){
+ .app-shell.immersive-mode{grid-template-columns:56px minmax(0,1fr)}
+ .app-shell.immersive-mode .topbar{padding-left:8px}
+ .app-shell.immersive-mode .content-layout{padding:6px}
+ .app-shell.immersive-mode .workspace-row{height:calc(100vh - 132px);min-height:350px}
+ .app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:105px minmax(0,1fr)}
+}
