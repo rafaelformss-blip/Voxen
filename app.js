@@ -420,8 +420,16 @@ function updateVoiceDock() {
   const active = !!state.voice;
   const dock = $("#voice-dock"); if (dock) dock.hidden = !active;
   const name = $("#voice-dock-name"); if (name) name.textContent = active ? state.voice.room.name : ""; const status = $("#voice-dock-status"); if (status) status.textContent = active ? "Conectado · voz ativa" : ""; const quality = $("#voice-quality"); if (quality) { quality.className = "voice-quality good"; quality.textContent = "● Conectado"; }
-  const mute = $("#voice-dock-mute"); if (mute) mute.textContent = state.voice?.muted ? "🎙️" : "🎤";
-  const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "Parar tela" : "Compartilhar tela";
+  const mute = $("#voice-dock-mute"); if (mute) { mute.textContent = state.voice?.muted ? "🎙️ Ativar microfone" : "🎤 Silenciar"; mute.setAttribute("aria-pressed", String(!!state.voice?.muted)); }
+  const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "▣ Parar tela" : "▧ Compartilhar tela";
+  const accountName = $("#dock-display-name"); if (accountName) accountName.textContent = state.profile?.display_name || state.profile?.username || "Seu perfil";
+  const accountAvatar = $("#profile-button");
+  if (accountAvatar && state.profile) {
+    accountAvatar.textContent = initials(state.profile.display_name || state.profile.username);
+    accountAvatar.style.backgroundImage = state.profile.avatar_url ? "url(" + JSON.stringify(state.profile.avatar_url) + ")" : "none";
+    accountAvatar.classList.toggle("has-avatar-image", !!state.profile.avatar_url);
+  }
+  if (state.selectedGroup) renderVoiceRooms(state.voiceRooms);
 }
 $("#voice-dock-mute")?.addEventListener("click", toggleVoiceMute);
 $("#voice-dock-share")?.addEventListener("click", () => state.voice?.screenStream ? stopScreenShare() : startScreenShare());
