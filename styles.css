@@ -84,3 +84,37 @@
  .app-shell.immersive-mode .workspace-row{height:calc(100vh - 132px);min-height:350px}
  .app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:105px minmax(0,1fr)}
 }
+
+/* Discord-like channel and member sidebars */
+.app-shell.immersive-mode .content-layout{padding:8px 0 0!important}
+.app-shell.immersive-mode .feed-column,.app-shell.immersive-mode #group-view{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
+.app-shell.immersive-mode .group-hero{margin:0 0 6px!important;border-radius:8px!important}
+.app-shell.immersive-mode .workspace-row{border-radius:0!important;border-left:0!important;border-right:0!important;width:100%!important;gap:0!important}
+.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:205px minmax(0,1fr)!important}
+.app-shell.immersive-mode .channel-sidebar{padding:15px 10px!important;background:#15161c;border-right:1px solid var(--line)!important}
+.app-shell.immersive-mode .channel-section-title{font-size:10px!important;font-weight:800!important;letter-spacing:1px!important;color:#b9bdd0!important;margin:5px 0 10px!important}
+.app-shell.immersive-mode .channel-section-title button{font-size:18px!important;width:28px!important;height:28px!important}
+.app-shell.immersive-mode .channel-item{min-height:39px!important;padding:9px 10px!important;gap:9px!important;font-size:13px!important;font-weight:650!important;border-radius:7px!important;color:#c6c9d7!important}
+.app-shell.immersive-mode .channel-item>span:first-child{font-size:16px!important;min-width:18px}
+.app-shell.immersive-mode .channel-item.active{background:#30294c!important;color:#fff!important}
+.app-shell.immersive-mode .voice-channel-item .voice-room-icon{color:#b6a9ff;font-size:15px}
+.app-shell.immersive-mode .voice-channel-item.voice-active{background:#1e3d35!important;color:#8de7c5!important}
+.app-shell.immersive-mode .voice-live-dot{margin-left:auto;width:8px;height:8px;border-radius:50%;background:#55d6a2;box-shadow:0 0 0 3px #55d6a222}
+.app-shell.immersive-mode .members-sidebar{flex-basis:215px!important;width:215px!important;padding:17px 12px!important;background:#15161c!important;border-left:1px solid var(--line)!important}
+.app-shell.immersive-mode .members-heading{font-size:10px!important;font-weight:800!important;letter-spacing:.8px!important;margin-bottom:18px!important}
+.app-shell.immersive-mode .members-sidebar h4{font-size:11px!important;font-weight:750!important;color:#c7cad7!important;margin:15px 0 9px!important}
+.app-shell.immersive-mode .member-item{display:flex;align-items:center;gap:9px;min-height:36px;padding:5px 6px;font-size:12px!important;color:#e0e2ed!important;border-radius:7px}
+.app-shell.immersive-mode .member-avatar{width:29px!important;height:29px!important;flex:0 0 29px!important;border-radius:50%!important;background-size:cover!important;background-position:center!important;font-size:11px!important}
+.avatar,.member-avatar{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
+.has-avatar-image{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;color:transparent!important}
+.profile-cover{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important}
+.rail-profile-dock{width:100%;display:flex;align-items:center;flex-direction:column;gap:8px}
+.voice-dock{width:60px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:9px 3px;background:#17362f;border:1px solid #286452;border-radius:12px;color:#a2f2d7}
+.voice-dock[hidden]{display:none!important}
+.voice-dock-indicator{width:7px;height:7px;background:#55d6a2;border-radius:50%;box-shadow:0 0 0 4px #55d6a222}
+#voice-dock-name{font-size:9px;font-weight:700;writing-mode:vertical-rl;max-height:90px;overflow:hidden}
+.voice-dock-actions{display:flex;flex-direction:column;gap:4px;width:100%;align-items:center}
+.voice-dock-actions button{font-size:11px;padding:5px 1px;border:0;border-radius:5px;background:#245044;color:#e4fff5;width:50px}
+.voice-mini-panel{display:none!important}
+.voice-mini-panel.voice-connected{display:none!important}
+@media(max-width:900px){.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:165px minmax(0,1fr)!important}.app-shell.immersive-mode .members-sidebar{flex-basis:175px!important;width:175px!important}}
