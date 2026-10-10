@@ -3,7 +3,7 @@ const SUPABASE_URL = "https://kldphrwrdpdbeidgvqfl.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JQbVo4uU_fykam905ziYbA_cFcKpIar";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (selector) => document.querySelector(selector);
-const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null, voice: null, groupPresence: null, onlineUserIds: new Set() };
+const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], voiceRooms: [], currentMemberRole: null, selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null, voice: null, groupPresence: null, onlineUserIds: new Set() };
 let toastTimer;
 function toast(message) {
   const node = $("#toast"); node.textContent = message; node.classList.add("show");
@@ -164,14 +164,14 @@ async function loadGroupMembers(groupId) {
   onlineRoot.replaceChildren(); offlineRoot.replaceChildren();
   const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name,avatar_url)").eq("group_id", groupId);
   if (error) { console.warn("Membros da comunidade:", error.message); return; }
-  const members = data || []; $("#member-count").textContent = String(members.length);
+  const members = [...new Map((data || []).map((m) => [m.user_id, m])).values()]; $("#member-count").textContent = String(members.length);
   // Presence in text/voice is temporary; the list below is a member directory, not a fabricated online indicator.
   members.forEach((membership) => {
     const profile = membership.profiles || {}, item = document.createElement("div"); item.className = "member-item";
     const avatar = document.createElement("span"); avatar.className = "member-avatar";
-    avatar.textContent = initials(profile.display_name || profile.username || "P"); if (profile.avatar_url) avatar.style.backgroundImage = "url(" + JSON.stringify(profile.avatar_url) + ")";
+    avatar.textContent = initials(profile.display_name || profile.username || "P"); if (profile.avatar_url) { avatar.style.backgroundImage = "url(" + JSON.stringify(profile.avatar_url) + ")"; avatar.classList.add("has-image"); }
     const label = document.createElement("span"); label.textContent = profile.display_name || profile.username || "Jogador";
-    item.append(avatar, label); (state.onlineUserIds.has(membership.user_id) ? onlineRoot : offlineRoot).append(item);
+    item.append(avatar, label); item.classList.add(state.onlineUserIds.has(membership.user_id) ? "member-online" : "member-offline"); (state.onlineUserIds.has(membership.user_id) ? onlineRoot : offlineRoot).append(item);
   });
   if (!members.length) offlineRoot.innerHTML = '<p class="muted small">Ainda não há membros.</p>';
   if (!onlineRoot.children.length) onlineRoot.innerHTML = '<p class="muted small">Ninguém online no momento.</p>';
@@ -185,7 +185,7 @@ async function watchGroupPresence(groupId) {
   state.groupPresence = channel;
   channel.on("presence", { event: "sync" }, () => {
     if (state.groupPresence !== channel) return;
-    const ids = new Set(Object.keys(channel.presenceState()));
+    const ids = new Set(Object.values(channel.presenceState()).flat().map(entry => entry.user_id).filter(Boolean));
     state.onlineUserIds = ids; loadGroupMembers(groupId).catch((e) => console.warn("Presence members:", e));
   });
   channel.subscribe(async (status) => {
@@ -202,14 +202,14 @@ async function openGroup(group) {
   try {
     const { data: membership, error: memberError } = await supabase.from("group_members").select("role").eq("group_id", group.id).eq("user_id", state.user.id).maybeSingle();
     if (memberError) throw memberError;
-    const isMember = !!membership; $("#join-group-button").hidden = isMember;
+    const isMember = !!membership; state.currentMemberRole = membership?.role || null; $("#join-group-button").hidden = isMember;
     $("#add-channel-button").hidden = !isMember || !["owner", "admin"].includes(membership.role); $("#add-voice-button").hidden = !isMember || !["owner", "admin"].includes(membership.role);
     const [channelsResult, voicesResult] = await Promise.all([
       supabase.from("text_channels").select("*").eq("group_id", group.id).order("position"),
       supabase.from("voice_rooms").select("*").eq("group_id", group.id).order("position")
     ]);
     if (channelsResult.error) throw channelsResult.error; if (voicesResult.error) throw voicesResult.error;
-    state.channels = channelsResult.data || []; renderChannels(); renderVoiceRooms(voicesResult.data || []); await loadGroupMembers(group.id);
+    state.channels = channelsResult.data || []; state.voiceRooms = voicesResult.data || []; renderChannels(); renderVoiceRooms(state.voiceRooms); await loadGroupMembers(group.id);
     if (!isMember) {
       state.selectedChannel = null; $("#channel-title").textContent = "Participe para conversar";
       $("#message-form").hidden = true; $("#message-list").innerHTML = '<div class="empty-state"><span>✧</span><strong>Entre nesta comunidade</strong><p>Você pode ver os canais públicos. Participe para ler e enviar mensagens.</p></div>';
@@ -400,7 +400,7 @@ function updateVoiceDock() {
   const dock = $("#voice-dock"); if (dock) dock.hidden = !active;
   const name = $("#voice-dock-name"); if (name) name.textContent = active ? state.voice.room.name : "";
   const mute = $("#voice-dock-mute"); if (mute) mute.textContent = state.voice?.muted ? "🎙️" : "🎤";
-  const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "Parar tela" : "Tela";
+  const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "Parar tela" : "Compartilhar tela";
 }
 $("#voice-dock-mute")?.addEventListener("click", toggleVoiceMute);
 $("#voice-dock-share")?.addEventListener("click", () => state.voice?.screenStream ? stopScreenShare() : startScreenShare());
