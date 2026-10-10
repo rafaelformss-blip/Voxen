@@ -52,6 +52,7 @@ async function refreshProfile() {
   state.profile = data; const display = data.display_name || data.username;
   $("#profile-display-name").textContent = display; $("#profile-username").textContent = "@" + data.username;
   $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
+  $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
   $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
 }
 async function loadGroups() {
@@ -474,6 +475,7 @@ $("#profile-form").addEventListener("submit", async (event) => {
     $("#profile-display-name").textContent = display;
     $("#profile-username").textContent = "@" + data.username;
     $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
+    $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
     $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
     $("#profile-dialog").close(); toast("Perfil atualizado!");
   } catch (error) { $("#profile-form-message").textContent = error.message || "Não foi possível salvar o perfil."; }
