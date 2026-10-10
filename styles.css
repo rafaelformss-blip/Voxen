@@ -310,3 +310,20 @@
   .app-shell.immersive-mode .rail-profile-dock>.voice-dock{left:4px!important;bottom:64px!important;width:calc(100% - 8px)!important}
   .app-shell.immersive-mode .channel-sidebar{padding-bottom:86px!important}
 }
+
+
+/* Voxen dock v6: align the bottom account/voice dock across the server rail and channel sidebar, like Discord. */
+.rail-profile-dock{left:0!important;width:276px!important}
+.rail-profile-dock>.account-dock{left:0!important;width:276px!important}
+.rail-profile-dock>.voice-dock{left:8px!important;width:260px!important}
+.app-shell.immersive-mode .rail-profile-dock{left:0!important;width:273px!important}
+.app-shell.immersive-mode .rail-profile-dock>.account-dock{left:0!important;width:273px!important}
+.app-shell.immersive-mode .rail-profile-dock>.voice-dock{left:8px!important;width:257px!important}
+@media(max-width:760px){
+  .rail-profile-dock{left:0!important;width:min(276px,100vw)!important}
+  .rail-profile-dock>.account-dock{left:0!important;width:100%!important}
+  .rail-profile-dock>.voice-dock{left:4px!important;width:calc(100% - 8px)!important}
+  .app-shell.immersive-mode .rail-profile-dock{left:0!important;width:min(261px,100vw)!important}
+  .app-shell.immersive-mode .rail-profile-dock>.account-dock{left:0!important;width:100%!important}
+  .app-shell.immersive-mode .rail-profile-dock>.voice-dock{left:4px!important;width:calc(100% - 8px)!important}
+}
