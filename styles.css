@@ -203,3 +203,21 @@
  .app-shell.immersive-mode .voice-dock{left:62px;width:min(235px,calc(100vw - 72px))!important}
  .app-shell.immersive-mode .channel-sidebar{padding-bottom:84px!important}
 }
+
+
+/* Final dock anchoring: keep account controls independent of the rail/sidebar footer. */
+.sidebar-footer{display:none!important}
+.rail-profile-dock{position:fixed!important;left:0;bottom:0;z-index:60;width:276px!important;display:block!important;pointer-events:none;overflow:visible!important}
+.rail-profile-dock .account-dock{left:0!important;bottom:0!important;width:276px!important;min-height:58px!important;pointer-events:auto;z-index:61!important}
+.rail-profile-dock .voice-dock{left:8px!important;bottom:66px!important;width:260px!important;pointer-events:auto;z-index:60!important}
+.app-shell.immersive-mode .rail-profile-dock{left:68px!important;bottom:0!important;width:205px!important}
+.app-shell.immersive-mode .rail-profile-dock .account-dock{left:68px!important;bottom:0!important;width:205px!important}
+.app-shell.immersive-mode .rail-profile-dock .voice-dock{left:66px!important;bottom:66px!important;width:188px!important}
+@media(max-width:760px){
+ .rail-profile-dock{left:58px!important;width:calc(100vw - 58px)!important}
+ .rail-profile-dock .account-dock{left:58px!important;width:calc(100vw - 58px)!important}
+ .rail-profile-dock .voice-dock{left:62px!important;bottom:64px!important;width:min(235px,calc(100vw - 72px))!important}
+ .app-shell.immersive-mode .rail-profile-dock{left:58px!important;width:calc(100vw - 58px)!important}
+ .app-shell.immersive-mode .rail-profile-dock .account-dock{left:58px!important;width:calc(100vw - 58px)!important}
+ .app-shell.immersive-mode .rail-profile-dock .voice-dock{left:62px!important;bottom:64px!important;width:min(235px,calc(100vw - 72px))!important}
+}
