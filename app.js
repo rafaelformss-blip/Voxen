@@ -3,7 +3,7 @@ const SUPABASE_URL = "https://kldphrwrdpdbeidgvqfl.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JQbVo4uU_fykam905ziYbA_cFcKpIar";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (selector) => document.querySelector(selector);
-const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login" };
+const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null };
 let toastTimer;
 function toast(message) {
   const node = $("#toast"); node.textContent = message; node.classList.add("show");
@@ -196,6 +196,7 @@ function renderVoiceRooms(rooms) {
   });
 }
 async function openChannel(channel) {
+  if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
   state.selectedChannel = channel; renderChannels(); $("#channel-title").textContent = "# " + channel.name;
   $("#message-form").hidden = false; $("#message-body").placeholder = "Mensagem em #" + channel.name;
   $("#message-list").innerHTML = '<div class="loading-card">Carregando mensagens…</div>';
@@ -204,6 +205,13 @@ async function openChannel(channel) {
     if (error) throw error; const root = $("#message-list"); root.replaceChildren();
     if (!data?.length) root.innerHTML = '<div class="empty-state"><span>✧</span><strong>O começo de uma conversa</strong><p>Envie a primeira mensagem deste canal.</p></div>';
     (data || []).forEach(renderMessage); root.scrollTop = root.scrollHeight;
+    state.messageSubscription = supabase.channel("voxen-messages-" + channel.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: "channel_id=eq." + channel.id }, (payload) => {
+        if (payload.new.author_id === state.user?.id || state.selectedChannel?.id !== channel.id) return;
+        const incoming = payload.new;
+        supabase.from("profiles").select("display_name,username").eq("id", incoming.author_id).maybeSingle()
+          .then(({ data: author }) => { if (state.selectedChannel?.id === channel.id) { renderMessage({ ...incoming, profiles: author || {} }); root.scrollTop = root.scrollHeight; } });
+      }).subscribe();
   } catch (error) { toast(error.message); }
 }
 function renderMessage(message) {
@@ -230,8 +238,45 @@ $("#add-channel-button").addEventListener("click", async () => {
   } catch (error) { toast(error.message); }
 });
 $("#logout-button").addEventListener("click", async () => { const { error } = await supabase.auth.signOut(); if (error) toast(error.message); });
-$("#profile-button").addEventListener("click", () => toast("Configurações de perfil estarão disponíveis em uma próxima versão."));
-$("#top-avatar").addEventListener("click", () => toast("Configurações de perfil estarão disponíveis em uma próxima versão."));
+function openProfileEditor() {
+  if (!state.profile) return;
+  $("#edit-display-name").value = state.profile.display_name || "";
+  $("#edit-bio").value = state.profile.bio || "";
+  $("#profile-form-message").textContent = "";
+  $("#profile-dialog").showModal();
+}
+$("#profile-button").addEventListener("click", openProfileEditor);
+$("#top-avatar").addEventListener("click", openProfileEditor);
+$("#profile-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true; $("#profile-form-message").textContent = "Salvando perfil…";
+  try {
+    const display_name = $("#edit-display-name").value.trim();
+    const bio = $("#edit-bio").value.trim();
+    const { data, error } = await supabase.from("profiles").update({ display_name, bio, updated_at: new Date().toISOString() }).eq("id", state.user.id).select().single();
+    if (error) throw error;
+    state.profile = data;
+    const display = data.display_name || data.username;
+    $("#profile-display-name").textContent = display;
+    $("#profile-username").textContent = "@" + data.username;
+    $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
+    $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
+    $("#profile-dialog").close(); toast("Perfil atualizado!");
+  } catch (error) { $("#profile-form-message").textContent = error.message || "Não foi possível salvar o perfil."; }
+  finally { button.disabled = false; }
+});
+$("#forgot-password").addEventListener("click", async () => {
+  const email = $("#auth-email").value.trim();
+  if (!email) { $("#auth-message").textContent = "Digite seu e-mail acima e clique em Esqueci minha senha."; $("#auth-email").focus(); return; }
+  const button = $("#forgot-password"); button.disabled = true; $("#auth-message").textContent = "Enviando link de recuperação…";
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if (error) throw error;
+    $("#auth-message").textContent = "Se esse e-mail estiver cadastrado, você receberá um link para redefinir a senha. Confira também o spam.";
+  } catch (error) { $("#auth-message").textContent = error.message || "Não foi possível enviar o e-mail de recuperação."; }
+  finally { button.disabled = false; }
+});
 $("#help-button").addEventListener("click", () => $("#help-dialog").showModal());
 $("#sidebar-menu").addEventListener("click", () => $("#help-dialog").showModal());
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
@@ -247,9 +292,19 @@ $("#install-button").addEventListener("click", async () => {
 });
 window.addEventListener("appinstalled", () => toast("Voxen instalado!"));
 async function onAuthChange(user) {
+  if (!user) {
+    if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
+    if (state.feedSubscription) { await supabase.removeChannel(state.feedSubscription); state.feedSubscription = null; }
+  }
   state.user = user; $("#auth-view").hidden = !!user; $("#signed-in-view").hidden = !user;
-  if (!user) { state.profile = null; state.groups = []; state.selectedGroup = null; return; }
-  try { await refreshProfile(); await loadGroups(); await loadFeed(); showContent("feed"); }
+  if (!user) { state.profile = null; state.groups = []; state.selectedGroup = null; state.selectedChannel = null; return; }
+  try {
+    await refreshProfile(); await loadGroups(); await loadFeed(); showContent("feed");
+    if (state.feedSubscription) await supabase.removeChannel(state.feedSubscription);
+    state.feedSubscription = supabase.channel("voxen-feed-" + user.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "feed_posts" }, () => loadFeed().catch((error) => console.warn("Feed realtime:", error.message)))
+      .subscribe();
+  }
   catch (error) { toast("Erro ao carregar o Voxen: " + error.message); }
 }
 supabase.auth.onAuthStateChange((_event, session) => { setTimeout(() => onAuthChange(session?.user || null), 0); });
