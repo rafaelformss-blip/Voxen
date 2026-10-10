@@ -3,7 +3,7 @@ const SUPABASE_URL = "https://kldphrwrdpdbeidgvqfl.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JQbVo4uU_fykam905ziYbA_cFcKpIar";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (selector) => document.querySelector(selector);
-const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null, voice: null };
+const state = { user: null, profile: null, groups: [], selectedGroup: null, channels: [], selectedChannel: null, authMode: "login", messageSubscription: null, feedSubscription: null, voice: null, groupPresence: null, onlineUserIds: new Set() };
 let toastTimer;
 function toast(message) {
   const node = $("#toast"); node.textContent = message; node.classList.add("show");
@@ -51,9 +51,14 @@ async function refreshProfile() {
   if (!data) throw new Error("Seu perfil ainda não foi criado. Confirme o e-mail, entre novamente ou verifique o gatilho de cadastro no Supabase.");
   state.profile = data; const display = data.display_name || data.username;
   $("#profile-display-name").textContent = display; $("#profile-username").textContent = "@" + data.username;
-  $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
-  $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você."; if (data.avatar_url) { $("#profile-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#top-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#composer-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; } if (data.avatar_url) { $("#profile-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#top-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; $("#composer-avatar").style.backgroundImage = "url(" + JSON.stringify(data.avatar_url) + ")"; }
-  $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
+  $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
+  [$("#profile-avatar"), $("#top-avatar"), $("#composer-avatar"), $("#profile-button")].forEach((el) => {
+    if (!el) return;
+    el.textContent = initials(display);
+    el.style.backgroundImage = data.avatar_url ? "url(" + JSON.stringify(data.avatar_url) + ")" : "none";
+    el.classList.toggle("has-avatar-image", !!data.avatar_url);
+  });
+  const cover = $(".profile-cover"); if (cover) cover.style.backgroundImage = data.cover_url ? "url(" + JSON.stringify(data.cover_url) + ")" : "";
 }
 async function loadGroups() {
   const { data, error } = await supabase.from("groups").select("id,name,slug,description,is_public,owner_id,created_at").order("created_at", { ascending: false }).limit(100);
@@ -157,23 +162,40 @@ $("#create-group-form").addEventListener("submit", async (event) => {
 async function loadGroupMembers(groupId) {
   const onlineRoot = $("#online-members"), offlineRoot = $("#offline-members");
   onlineRoot.replaceChildren(); offlineRoot.replaceChildren();
-  const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name)").eq("group_id", groupId);
+  const { data, error } = await supabase.from("group_members").select("user_id,profiles(id,username,display_name,avatar_url)").eq("group_id", groupId);
   if (error) { console.warn("Membros da comunidade:", error.message); return; }
   const members = data || []; $("#member-count").textContent = String(members.length);
   // Presence in text/voice is temporary; the list below is a member directory, not a fabricated online indicator.
   members.forEach((membership) => {
     const profile = membership.profiles || {}, item = document.createElement("div"); item.className = "member-item";
     const avatar = document.createElement("span"); avatar.className = "member-avatar";
-    avatar.textContent = initials(profile.display_name || profile.username || "P");
+    avatar.textContent = initials(profile.display_name || profile.username || "P"); if (profile.avatar_url) avatar.style.backgroundImage = "url(" + JSON.stringify(profile.avatar_url) + ")";
     const label = document.createElement("span"); label.textContent = profile.display_name || profile.username || "Jogador";
-    item.append(avatar, label); offlineRoot.append(item);
+    item.append(avatar, label); (state.onlineUserIds.has(membership.user_id) ? onlineRoot : offlineRoot).append(item);
   });
   if (!members.length) offlineRoot.innerHTML = '<p class="muted small">Ainda não há membros.</p>';
-  onlineRoot.innerHTML = '<p class="muted small">O status online será mostrado quando a presença dos membros estiver conectada.</p>';
+  if (!onlineRoot.children.length) onlineRoot.innerHTML = '<p class="muted small">Ninguém online no momento.</p>';
+  if (!offlineRoot.children.length) offlineRoot.innerHTML = '<p class="muted small">Ninguém offline.</p>';
 }
 
+async function watchGroupPresence(groupId) {
+  if (state.groupPresence) { await supabase.removeChannel(state.groupPresence); state.groupPresence = null; }
+  state.onlineUserIds = new Set();
+  const channel = supabase.channel("voxen-presence-" + groupId, { config: { presence: { key: state.user.id } } });
+  state.groupPresence = channel;
+  channel.on("presence", { event: "sync" }, () => {
+    if (state.groupPresence !== channel) return;
+    const ids = new Set(Object.keys(channel.presenceState()));
+    state.onlineUserIds = ids; loadGroupMembers(groupId).catch((e) => console.warn("Presence members:", e));
+  });
+  channel.subscribe(async (status) => {
+    if (status === "SUBSCRIBED" && state.groupPresence === channel) {
+      await channel.track({ user_id: state.user.id, username: state.profile?.username, online_at: new Date().toISOString() });
+    }
+  });
+}
 async function openGroup(group) {
-  state.selectedGroup = group; renderGroups(); showContent("group");
+  state.selectedGroup = group; renderGroups(); showContent("group"); watchGroupPresence(group.id).catch((e) => console.warn("Presence:", e));
   $("#group-title").textContent = group.name; $("#group-description").textContent = group.description || "Bem-vindo a esta comunidade.";
   $("#group-cover-icon").textContent = initials(group.name); $("#join-group-button").hidden = true;
   $("#channel-list").innerHTML = '<p class="muted small">Carregando…</p>'; $("#voice-list").replaceChildren();
@@ -215,8 +237,9 @@ function renderVoiceRooms(rooms) {
   const root = $("#voice-list"); root.replaceChildren();
   if (!rooms.length) { root.innerHTML = '<p class="muted small">Nenhuma sala ainda.</p>'; return; }
   rooms.forEach((room) => {
-    const button = document.createElement("button"); button.className = "channel-item"; button.innerHTML = '<span>◖))</span>' + escapeHtml(room.name);
-    button.addEventListener("click", () => joinVoiceRoom(room)); root.append(button);
+    const button = document.createElement("button"); button.className = "channel-item voice-channel-item" + (state.voice?.room.id === room.id ? " voice-active" : "");
+    button.innerHTML = '<span class="voice-room-icon">◖))</span><span class="voice-room-label">' + escapeHtml(room.name) + '</span>' + (state.voice?.room.id === room.id ? '<span class="voice-live-dot" title="Conectado"></span>' : '');
+    button.addEventListener("click", () => state.voice?.room.id === room.id ? toast("Você já está conectado a esta sala.") : joinVoiceRoom(room)); root.append(button);
   });
 }
 
@@ -346,7 +369,7 @@ async function joinVoiceRoom(room) {
   $("#voice-room-name").textContent = room.name;
   $("#voice-status").textContent = "Solicitando acesso ao microfone…";
   $("#voice-media-grid").replaceChildren();
-  $("#voice-dialog").showModal();
+  $("#voice-dialog").classList.add("voice-connected"); document.body.classList.add("voice-active"); updateVoiceDock();
   try {
     const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const voice = { room, channel: null, localStream, screenStream: null, peers: new Map(), pendingIce: new Map(), muted: false };
@@ -360,17 +383,28 @@ async function joinVoiceRoom(room) {
         await channel.track({ user_id: state.user.id, username: state.profile?.username || "player", joined_at: new Date().toISOString() });
         await syncVoicePeers();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        $("#voice-status").textContent = "Não foi possível conectar à sala. Verifique sua conexão.";
+        $("#voice-status").textContent = "Não foi possível conectar à sala. Verifique sua conexão."; toast("Não foi possível conectar à sala de voz.");
       }
     });
     $("#voice-mute-button").textContent = "Silenciar microfone";
-    $("#voice-share-button").textContent = "Compartilhar tela";
+    $("#voice-share-button").textContent = "Compartilhar tela"; updateVoiceDock();
+    $("#voice-status").textContent = "Conectado à sala de voz"; updateVoiceDock(); toast("Você entrou na sala de voz.");
   } catch (error) {
     await leaveVoiceRoom(false);
-    $("#voice-dialog").close();
+    $("#voice-dialog").classList.remove("voice-connected"); document.body.classList.remove("voice-active"); updateVoiceDock();
     toast(error.name === "NotAllowedError" ? "Permita o uso do microfone no navegador para entrar na sala." : "Não foi possível acessar o microfone: " + error.message);
   }
 }
+function updateVoiceDock() {
+  const active = !!state.voice;
+  const dock = $("#voice-dock"); if (dock) dock.hidden = !active;
+  const name = $("#voice-dock-name"); if (name) name.textContent = active ? state.voice.room.name : "";
+  const mute = $("#voice-dock-mute"); if (mute) mute.textContent = state.voice?.muted ? "🎙️" : "🎤";
+  const share = $("#voice-dock-share"); if (share) share.textContent = state.voice?.screenStream ? "Parar tela" : "Tela";
+}
+$("#voice-dock-mute")?.addEventListener("click", toggleVoiceMute);
+$("#voice-dock-share")?.addEventListener("click", () => state.voice?.screenStream ? stopScreenShare() : startScreenShare());
+$("#voice-dock-leave")?.addEventListener("click", () => leaveVoiceRoom(true));
 function removeVoicePeer(remoteId) {
   const voice = state.voice, peer = voice?.peers.get(remoteId);
   if (!peer) return;
@@ -396,7 +430,7 @@ async function startScreenShare() {
       peer.screenSender = peer.pc.addTrack(track, stream);
       await renegotiateVoicePeer(remoteId, peer);
     }
-    $("#voice-share-button").textContent = "Parar compartilhamento";
+    $("#voice-share-button").textContent = "Parar compartilhamento"; updateVoiceDock();
     toast("Compartilhamento de tela iniciado.");
   } catch (error) {
     if (error.name !== "NotAllowedError") toast("Não foi possível compartilhar a tela: " + error.message);
@@ -424,7 +458,7 @@ async function leaveVoiceRoom(closeDialog = true) {
     voice.localStream?.getTracks().forEach((track) => track.stop());
   }
   $("#voice-media-grid")?.replaceChildren();
-  if (closeDialog && $("#voice-dialog").open) $("#voice-dialog").close();
+  $("#voice-dialog").classList.remove("voice-connected"); document.body.classList.remove("voice-active"); updateVoiceDock();
 }
 $("#voice-mute-button").addEventListener("click", toggleVoiceMute);
 $("#voice-share-button").addEventListener("click", () => state.voice?.screenStream ? stopScreenShare() : startScreenShare());
@@ -491,6 +525,7 @@ function openProfileEditor() {
   $("#edit-display-name").value = state.profile.display_name || "";
   $("#edit-bio").value = state.profile.bio || "";
   $("#profile-form-message").textContent = "";
+  $("#edit-avatar-file").value = ""; $("#edit-cover-file").value = "";
   $("#profile-dialog").showModal();
 }
 $("#profile-button").addEventListener("click", openProfileEditor);
@@ -502,7 +537,19 @@ $("#profile-form").addEventListener("submit", async (event) => {
   try {
     const display_name = $("#edit-display-name").value.trim();
     const bio = $("#edit-bio").value.trim();
-    const { data, error } = await supabase.from("profiles").update({ display_name, bio, updated_at: new Date().toISOString() }).eq("id", state.user.id).select().single();
+    const updates = { display_name, bio, updated_at: new Date().toISOString() };
+    for (const [inputId, field, prefix] of [["edit-avatar-file","avatar_url","avatar"],["edit-cover-file","cover_url","cover"]]) {
+      const file = $("#" + inputId).files?.[0];
+      if (!file) continue;
+      if (file.size > 5 * 1024 * 1024) throw new Error("A imagem deve ter no máximo 5 MB.");
+      if (!["image/png","image/jpeg","image/webp"].includes(file.type)) throw new Error("Use uma imagem PNG, JPG ou WebP.");
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = state.user.id + "/" + prefix + "-" + Date.now() + "." + ext;
+      const { error: uploadError } = await supabase.storage.from("voxen-profile-media").upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+      updates[field] = supabase.storage.from("voxen-profile-media").getPublicUrl(path).data.publicUrl;
+    }
+    const { data, error } = await supabase.from("profiles").update(updates).eq("id", state.user.id).select().single();
     if (error) throw error;
     state.profile = data;
     const display = data.display_name || data.username;
@@ -510,7 +557,8 @@ $("#profile-form").addEventListener("submit", async (event) => {
     $("#profile-username").textContent = "@" + data.username;
     $("#profile-avatar").textContent = initials(display); $("#top-avatar").textContent = initials(display);
     $("#profile-bio").textContent = data.bio || "Sua comunidade começa com você.";
-    $("#composer-avatar").textContent = initials(display); $("#profile-button").textContent = initials(display);
+    [$("#profile-avatar"), $("#top-avatar"), $("#composer-avatar"), $("#profile-button")].forEach((el) => { if (!el) return; el.textContent = initials(display); el.style.backgroundImage = data.avatar_url ? "url(" + JSON.stringify(data.avatar_url) + ")" : "none"; el.classList.toggle("has-avatar-image", !!data.avatar_url); });
+    const cover = $(".profile-cover"); if (cover) cover.style.backgroundImage = data.cover_url ? "url(" + JSON.stringify(data.cover_url) + ")" : "";
     $("#profile-dialog").close(); toast("Perfil atualizado!");
   } catch (error) { $("#profile-form-message").textContent = error.message || "Não foi possível salvar o perfil."; }
   finally { button.disabled = false; }
@@ -554,6 +602,7 @@ $("#install-button").addEventListener("click", async () => {
 window.addEventListener("appinstalled", () => toast("Voxen instalado!"));
 async function onAuthChange(user) {
   if (!user) {
+    if (state.groupPresence) { await supabase.removeChannel(state.groupPresence); state.groupPresence = null; }
     if (state.voice) await leaveVoiceRoom(true);
     if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
     if (state.feedSubscription) { await supabase.removeChannel(state.feedSubscription); state.feedSubscription = null; }
