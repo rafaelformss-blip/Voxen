@@ -34,7 +34,7 @@ $("#auth-form").addEventListener("submit", async (event) => {
   try {
     if (state.authMode === "signup") {
       if (!/^[a-z0-9_-]{3,24}$/.test(username)) throw new Error("Use 3–24 caracteres: letras, números, _ ou -.");
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { username, display_name: username } } });
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { username, display_name: username } } });
       if (error) throw error;
       if (data.session) toast("Conta criada! Bem-vindo ao Voxen.");
       else $("#auth-message").textContent = "Conta criada. Confira seu e-mail para confirmar o cadastro e depois entre.";
@@ -266,6 +266,18 @@ $("#profile-form").addEventListener("submit", async (event) => {
   } catch (error) { $("#profile-form-message").textContent = error.message || "Não foi possível salvar o perfil."; }
   finally { button.disabled = false; }
 });
+$("#reset-password-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true; $("#reset-password-message").textContent = "Atualizando senha…";
+  try {
+    const { error } = await supabase.auth.updateUser({ password: $("#reset-password-value").value });
+    if (error) throw error;
+    $("#reset-password-dialog").close(); $("#reset-password-value").value = "";
+    toast("Senha atualizada! Sua conta está pronta para uso.");
+  } catch (error) { $("#reset-password-message").textContent = error.message || "Não foi possível atualizar a senha."; }
+  finally { button.disabled = false; }
+});
 $("#forgot-password").addEventListener("click", async () => {
   const email = $("#auth-email").value.trim();
   if (!email) { $("#auth-message").textContent = "Digite seu e-mail acima e clique em Esqueci minha senha."; $("#auth-email").focus(); return; }
@@ -307,7 +319,12 @@ async function onAuthChange(user) {
   }
   catch (error) { toast("Erro ao carregar o Voxen: " + error.message); }
 }
-supabase.auth.onAuthStateChange((_event, session) => { setTimeout(() => onAuthChange(session?.user || null), 0); });
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    setTimeout(() => { $("#reset-password-message").textContent = ""; $("#reset-password-dialog").showModal(); }, 0);
+  }
+  setTimeout(() => onAuthChange(session?.user || null), 0);
+});
 supabase.auth.getSession().then(({ data, error }) => { if (error) toast(error.message); if (!data.session) onAuthChange(null); });
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js").catch((error) => console.warn("Service worker não registrado:", error)));
