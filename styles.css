@@ -14,3 +14,30 @@
 .voice-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:5px}
 .voice-controls button{font-size:11px}
 @media(max-width:600px){.voice-room-panel{padding:22px 16px}.voice-controls{display:grid;grid-template-columns:1fr}.voice-media-grid{grid-template-columns:1fr}}
+
+/* Discord-like immersive community workspace */
+.app-shell.immersive-mode{grid-template-columns:68px 210px minmax(0,1fr)}
+.app-shell.immersive-mode .sidebar{display:flex}
+.app-shell.immersive-mode .content-layout{grid-template-columns:minmax(0,1fr);padding:18px 24px}
+.app-shell.immersive-mode .right-column{display:none}
+.app-shell.immersive-mode .feed-column{max-width:none;width:100%}
+.app-shell.immersive-mode .channel-workspace{height:calc(100vh - 190px);min-height:450px}
+.back-home-button{margin-right:12px;white-space:nowrap;font-size:10px}
+.members-sidebar{width:190px;flex-shrink:0;border-left:1px solid var(--line);background:#17181f;padding:17px 12px;overflow:auto}
+.members-heading{font-size:9px;font-weight:700;letter-spacing:.7px;color:#9398ab;margin:2px 3px 18px}
+.members-sidebar section{margin-bottom:22px}
+.members-sidebar h4{font-size:10px;color:#999eb0;margin:0 3px 10px}
+.member-item{display:flex;align-items:center;gap:9px;padding:7px 5px;border-radius:7px;color:#d5d7e2;font-size:11px;overflow:hidden}
+.member-item:hover{background:#252630}
+.member-avatar{width:28px;height:28px;display:grid;place-items:center;flex-shrink:0;border-radius:9px;background:#34304c;color:#c8bfff;font-weight:700;background-position:center;background-size:cover}
+.member-avatar.has-image{color:transparent}
+#group-view{min-width:0}
+#group-view .channel-workspace{display:grid;grid-template-columns:175px minmax(0,1fr) 190px}
+#group-view .channel-workspace:has(+ .members-sidebar[hidden]){grid-template-columns:175px minmax(0,1fr)}
+#group-view .channel-workspace{position:relative}
+#group-view .channel-workspace .chat-panel{min-width:0}
+.channel-section-title button{color:#a99eff;border:0;background:transparent;cursor:pointer;font-size:15px}
+.profile-cover{background-position:center;background-size:cover}
+.avatar{background-position:center;background-size:cover}
+@media(max-width:1150px){.app-shell.immersive-mode{grid-template-columns:58px 190px minmax(0,1fr)}.app-shell.immersive-mode .content-layout{padding:14px}.members-sidebar{width:165px}}
+@media(max-width:760px){.app-shell.immersive-mode{grid-template-columns:58px minmax(0,1fr)}.app-shell.immersive-mode .sidebar{display:none}.app-shell.immersive-mode .content-layout{padding:10px 8px}.app-shell.immersive-mode #group-view .channel-workspace{grid-template-columns:100px minmax(0,1fr)}.members-sidebar{display:none!important}.back-home-button{font-size:9px;padding:8px}.app-shell.immersive-mode .channel-workspace{height:calc(100vh - 155px)}}
