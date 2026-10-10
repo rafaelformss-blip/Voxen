@@ -299,6 +299,7 @@ async function syncVoicePeers() {
   if (!voice?.channel) return;
   const presence = voice.channel.presenceState();
   const remoteIds = [...new Set(Object.values(presence).flat().map((entry) => entry.user_id).filter((id) => id && id !== state.user.id))];
+  for (const remoteId of voice.peers.keys()) if (!remoteIds.includes(remoteId)) removeVoicePeer(remoteId);
   $("#voice-status").textContent = "Conectado · " + (remoteIds.length + 1) + " participante(s)";
   for (const remoteId of remoteIds) {
     if (state.user.id.localeCompare(remoteId) < 0 && !voice.peers.has(remoteId)) {
@@ -314,7 +315,7 @@ async function joinVoiceRoom(room) {
     toast("Este navegador não oferece suporte a WebRTC. Use uma versão recente do Chrome, Edge, Firefox ou Safari.");
     return;
   }
-  if (state.voice) await leaveVoiceRoom(false);
+  if (state.voice) await leaveVoiceRoom(true);
   const { data: membership, error: membershipError } = await supabase.from("group_members").select("user_id").eq("group_id", room.group_id).eq("user_id", state.user.id).maybeSingle();
   if (membershipError) { toast(membershipError.message); return; }
   if (!membership) { toast("Entre na comunidade antes de participar da sala de voz."); return; }
@@ -517,7 +518,7 @@ $("#install-button").addEventListener("click", async () => {
 window.addEventListener("appinstalled", () => toast("Voxen instalado!"));
 async function onAuthChange(user) {
   if (!user) {
-    if (state.voice) await leaveVoiceRoom(false);
+    if (state.voice) await leaveVoiceRoom(true);
     if (state.messageSubscription) { await supabase.removeChannel(state.messageSubscription); state.messageSubscription = null; }
     if (state.feedSubscription) { await supabase.removeChannel(state.feedSubscription); state.feedSubscription = null; }
   }
